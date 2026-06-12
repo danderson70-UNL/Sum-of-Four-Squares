@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../../../mathematics_in_lean/MIL"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {}
+}
