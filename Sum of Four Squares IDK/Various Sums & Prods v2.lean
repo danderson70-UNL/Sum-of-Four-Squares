@@ -336,15 +336,24 @@ lemma h_5 {f : ℕ → ℝ} : Tendsto f atTop (𝓝 1) →
 lemma h_6 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(n+1)) atTop (𝓝 0) := by
   rw[(by ext; ring : (fun n ↦ q^(n+1)) = fun n ↦ q * q^n)]
   apply h_3 (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
-lemma h_7 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(2*n)) atTop (𝓝 0) := by
-  rw[(by ext; ring : (fun n ↦ q^(2*n)) = fun n ↦ q^n * q^n), ←zero_mul 0]
-  apply Tendsto.mul <;> exact (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
+lemma h_7 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(n+2)) atTop (𝓝 0) := by
+  rw[(by ext; ring : (fun n ↦ q^(n+2)) = fun n ↦ q^2 * q^n)]
+  apply h_3 (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
 lemma h_8 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(2*n+2)) atTop (𝓝 0) := by
-  rw[(by ext; ring : (fun n ↦ q^(2*n+2)) = fun n ↦ q^2 * q^(2*n))]
-  apply h_3 (h_7 qN1)
+  rw[(by ext; ring : (fun n ↦ q^(2*n+2)) = fun n ↦ q^(n+1) * q^(n+1)), ←zero_mul 0]
+  apply Tendsto.mul <;> exact h_6 qN1
+lemma h_9 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(2*n+4)) atTop (𝓝 0) := by
+  rw[(by ext; ring : (fun n ↦ q^(2*n+4)) = fun n ↦ q^(n+2) * q^(n+2)), ←zero_mul 0]
+  apply Tendsto.mul <;> exact h_7 qN1
+
+macro "mul_rw" a:term "AND" b:term : tactic => `(tactic| (
+  repeat rw[mul_right_comm _ $a];
+  repeat rw[mul_right_comm _ $b];
+  rw[mul_assoc]
+))
 
 lemma S_Summable {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
-    (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) : Summable (S a q x) := by
+    (h₂ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) : Summable (S a q x) := by
   by_cases h' : ∃ N : ℕ, a = q*q^N
   · obtain ⟨N, h'⟩ := h'
     apply summable_of_hasFiniteSupport
@@ -363,20 +372,36 @@ lemma S_Summable {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖
   have : ‖a‖ = ‖a‖ * 1 * 1 * 1 * 1 * 1 * 1 := by repeat rw[mul_one]
   rw[this]
   have : (fun n ↦ ‖S a q x (n + 1)‖ / ‖S a q x n‖) = (fun n ↦ ‖a‖ * ‖1-a⁻¹*q^(n+2)‖
-      * ‖1+q^(n+2)‖ * ‖1-q^(n+1)*x+q^(2*n+2)‖ * ‖1-a*q^(n+1)‖⁻¹ * ‖1+q^(n+1)‖⁻¹ * ‖1-q^(n+2)*x+q^(2*n+4)‖) := by
+      * ‖1+q^(n+2)‖ * ‖1-q^(n+1)*x+q^(2*n+2)‖ * ‖1-a*q^(n+1)‖⁻¹ * ‖1+q^(n+1)‖⁻¹ * ‖1-q^(n+2)*x+q^(2*n+4)‖⁻¹) := by
     ext n; rw[S, S]
     repeat rw[norm_mul]
     rw[norm_pow, norm_pow, norm_inv, norm_inv, norm_inv, norm_inv]
-    have aN0 := norm_ne_zero_iff.mpr a0
-    have : ‖W (a⁻¹ * q) q (n + 2)‖ * ‖W (a⁻¹ * q) q (n + 1)‖⁻¹ = ‖1-a⁻¹*q^(n+2)‖ := by sorry
-    have : ‖W a q (n + 2)‖⁻¹ / ‖W a q (n + 1)‖⁻¹ = ‖1-a*q^(n+1)‖⁻¹ := by sorry
-    have : ‖1 - q ^ (n + 1) * x + q ^ (2 * n + 2)‖ ≠ 0 := by sorry
     rw[div_eq_inv_mul]; repeat rw[mul_inv]
-    rw[inv_inv, inv_inv]
-    repeat rw[mul_comm_right _ ‖a‖^(n+1+1)]
-    
+    rw[inv_inv, inv_inv, (by omega : n+1+1 = n+2), (by omega : 2*(n+1)+2 = 2*n+4)]
+    repeat rw[←mul_assoc]
+    have : ‖W (a⁻¹ * q) q (n + 2)‖ * ‖W (a⁻¹ * q) q (n + 1)‖⁻¹ = ‖1-a⁻¹*q^(n+2)‖ := by
+      rw[W, W, ←prod_erase_mul _ _ (by simp : n+1 ∈ range (n+2)), norm_mul]
+      rw[(by grind : (range (n+2)).erase (n+1) = range (n+1))]
+      have : ‖∏ x ∈ range (n + 1), (1 - a⁻¹*q*q^x)‖ ≠ 0 := by
+        rw[norm_ne_zero_iff, prod_ne_zero_iff]
+        rintro i - eq
+        apply_fun fun X ↦ a * (X + a⁻¹*q*q^i) at eq
+        rw[sub_add_cancel, mul_one, zero_add, ←mul_assoc, ←mul_assoc] at eq
+        rw[mul_inv_cancel₀ a0, one_mul] at eq
+        exact h' i eq
+      rw[mul_right_comm, mul_inv_cancel₀ this, one_mul, mul_assoc, succ_pow]
+    mul_rw ‖W (a⁻¹ * q) q (n + 2)‖ AND ‖W (a⁻¹ * q) q (n + 1)‖⁻¹; rw[this]
+    have : ‖W a q (n + 2)‖⁻¹ * ‖W a q (n + 1)‖ = ‖1-a*q^(n+1)‖⁻¹ := by
+      rw[W, W, ←prod_erase_mul _ _ (by simp : n+1 ∈ range (n+2)), norm_mul, mul_inv]
+      rw[(by grind : (range (n+2)).erase (n+1) = range (n+1))]
+      have : ‖∏ x ∈ range (n + 1), (1 - a * q ^ x)‖ ≠ 0 := by
+        rw[norm_ne_zero_iff, prod_ne_zero_iff]
+        rintro i -
+        exact h₂ i
+      field
+    mul_rw ‖W a q (n + 2)‖⁻¹ AND ‖W a q (n + 1)‖; rw[this]
+    have aN0 := norm_ne_zero_iff.mpr a0
     field
-    sorry
   rw[this]
   repeat apply Filter.Tendsto.mul
   · exact tendsto_const_nhds_iff.mpr rfl
@@ -384,13 +409,14 @@ lemma S_Summable {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖
   · apply h_0; apply h_1 (tendsto_const_nhds_iff.mpr rfl) (h_6 qN1)
   · apply h_0; apply h_1 _ (h_7 qN1)
     apply h_2 (tendsto_const_nhds_iff.mpr rfl)
-    apply h_4 (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
+    apply h_4; sorry--(tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
   · apply h_5; apply h_0; apply h_2 (tendsto_const_nhds_iff.mpr rfl)
-    apply h_3; exact tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1
+    apply h_3; sorry --exact tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1
   · apply h_5; apply h_0; apply h_1 (tendsto_const_nhds_iff.mpr rfl)
-    exact tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1
-  · apply h_0; apply h_1 _ (h_8 qN1)
-    apply h_2 (tendsto_const_nhds_iff.mpr rfl); apply h_4 (h_6 qN1)
+    sorry --exact tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1
+  · apply h_5; apply h_0; apply h_1
+    · apply h_2 (tendsto_const_nhds_iff.mpr rfl); apply h_4 (h_6 qN1)
+    · apply h_8 qN1
 
 lemma S_bounded {a q x : ℂ} : ∃ B : ℝ, ∀ n : ℕ, ‖S a q x n‖ ≤ B := by
   sorry
