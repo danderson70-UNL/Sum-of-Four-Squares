@@ -372,7 +372,8 @@ lemma S_Summable {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖
   have : ‖a‖ = ‖a‖ * 1 * 1 * 1 * 1 * 1 * 1 := by repeat rw[mul_one]
   rw[this]
   have : (fun n ↦ ‖S a q x (n + 1)‖ / ‖S a q x n‖) = (fun n ↦ ‖a‖ * ‖1-a⁻¹*q^(n+2)‖
-      * ‖1+q^(n+2)‖ * ‖1-q^(n+1)*x+q^(2*n+2)‖ * ‖1-a*q^(n+1)‖⁻¹ * ‖1+q^(n+1)‖⁻¹ * ‖1-q^(n+2)*x+q^(2*n+4)‖⁻¹) := by
+      * ‖1+q^(n+2)‖ * ‖1-q^(n+1)*x+q^(2*n+2)‖ * ‖1-a*q^(n+1)‖⁻¹ * ‖1+q^(n+1)‖⁻¹
+      * ‖1-q^(n+2)*x+q^(2*n+4)‖⁻¹) := by
     ext n; rw[S, S]
     repeat rw[norm_mul]
     rw[norm_pow, norm_pow, norm_inv, norm_inv, norm_inv, norm_inv]
@@ -405,21 +406,25 @@ lemma S_Summable {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖
   rw[this]
   repeat apply Filter.Tendsto.mul
   · exact tendsto_const_nhds_iff.mpr rfl
-  · apply h_0; apply h_2 (tendsto_const_nhds_iff.mpr rfl); apply h_3 (h_6 qN1)
-  · apply h_0; apply h_1 (tendsto_const_nhds_iff.mpr rfl) (h_6 qN1)
-  · apply h_0; apply h_1 _ (h_7 qN1)
+  · apply h_0; apply h_2 (tendsto_const_nhds_iff.mpr rfl); apply h_3 (h_7 qN1)
+  · apply h_0; apply h_1 (tendsto_const_nhds_iff.mpr rfl) (h_7 qN1)
+  · apply h_0; apply h_1 _ (h_8 qN1)
     apply h_2 (tendsto_const_nhds_iff.mpr rfl)
-    apply h_4; sorry--(tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
+    apply h_4; apply h_6 qN1
   · apply h_5; apply h_0; apply h_2 (tendsto_const_nhds_iff.mpr rfl)
-    apply h_3; sorry --exact tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1
-  · apply h_5; apply h_0; apply h_1 (tendsto_const_nhds_iff.mpr rfl)
-    sorry --exact tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1
+    apply h_3 (h_6 qN1)
+  · apply h_5; apply h_0; apply h_1 (tendsto_const_nhds_iff.mpr rfl) (h_6 qN1)
   · apply h_5; apply h_0; apply h_1
-    · apply h_2 (tendsto_const_nhds_iff.mpr rfl); apply h_4 (h_6 qN1)
-    · apply h_8 qN1
+    · apply h_2 (tendsto_const_nhds_iff.mpr rfl); apply h_4 (h_7 qN1)
+    · apply h_9 qN1
 
-lemma S_bounded {a q x : ℂ} : ∃ B : ℝ, ∀ n : ℕ, ‖S a q x n‖ ≤ B := by
-  sorry
+lemma S_bounded {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
+    (h₂ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) :
+    ∃ B : ℝ, ∀ n : ℕ, ‖S a q x n‖ ≤ B := by
+  have T := (S_Summable a0 aN1 qN1 h₂ h₃).tendsto_atTop_zero
+  obtain ⟨B, T⟩ := Bornology.IsBounded.exists_norm_le (Metric.isBounded_range_of_tendsto _ T)
+  use B; intro n
+  exact norm_norm (S a q x n) ▸ T (S a q x n) (Set.mem_range.mpr ⟨n, rfl⟩)
 
 -- Bounds result
 lemma W_bounded (a : ℂ) {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ B : ℝ, ∀ n : ℕ, ‖W a q n‖ ≤ B := by
