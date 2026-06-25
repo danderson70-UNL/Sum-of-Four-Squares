@@ -331,7 +331,6 @@ lemma h_4 {f : ℕ → ℂ} {c : ℂ} : Tendsto f atTop (𝓝 0) →
   nth_rw 2 [←zero_mul c]; apply Tendsto.mul_const
 lemma h_5 {f : ℕ → ℝ} : Tendsto f atTop (𝓝 1) →
     Tendsto (fun n ↦ (f n)⁻¹) atTop (𝓝 1) := by
-    have : 1 = (1:ℝ)⁻¹ := by exact one_eq_inv.mpr rfl
     nth_rw 2 [one_eq_inv.mpr rfl]; exact fun h ↦ Tendsto.inv₀ h (one_ne_zero)
 lemma h_6 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(n+1)) atTop (𝓝 0) := by
   rw[(by ext; ring : (fun n ↦ q^(n+1)) = fun n ↦ q * q^n)]
@@ -445,7 +444,7 @@ lemma W_bounded (a : ℂ) {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ B : ℝ, ∀ n : �
   apply Summable.mul_left
   refine summable_geometric_of_lt_one (norm_nonneg q) qN1
 
-lemma Winv_bounded (a q : ℂ) : ∀ᶠ n : ℕ in atTop, ‖W a q n‖⁻¹ < 2 := by
+lemma Winv_bounded (a : ℂ) {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ᶠ n : ℕ in atTop, ‖W a q n‖⁻¹ < 2 := by
   sorry
 
 
@@ -470,22 +469,24 @@ def B (n : ℕ) := ‖S a q x n‖ * 2
 --   apply summable_geometric_of_abs_lt_one
 --   rwa[←Real.norm_eq_abs, norm_norm]
 
--- lemma B_Summable {a q x : ℂ} : Summable (B a q x) := by sorry
+lemma B_Summable {a q x : ℂ} : Summable (B a q x) := by
+
+  sorry
 
 -- lemma EQ2_5_1 { a q x : ℂ} : ∀ᶠ (N : ℕ) in atTop, ∀ (n : ℕ), ‖S a q x ‖
 
--- lemma EQ2_5 {a q x : ℂ} (r : ℝ) {r1 : r > 1} {arN1 : (‖a * r‖ < 1)} :
---     ∀ᶠ (N : ℕ) in atTop, ∀ (n : ℕ), ‖SS a q x n N‖ ≤ B a r x n := by
---   apply Eventually.of_forall
---   intro N n
---   by_cases Nn : N ≤ n
---   · rw[SS, if_pos Nn, norm_zero, B]
---     apply pow_nonneg (norm_nonneg (a*↑r))
---   rw[SS, if_neg Nn, S, B]; repeat rw[norm_mul]
---   rw[norm_pow, norm_pow, norm_inv, norm_inv, norm_inv]
+lemma EQ2_5 {a q x : ℂ} :
+    ∀ᶠ (N : ℕ) in atTop, ∀ (n : ℕ), ‖SS a q x n N‖ ≤ B a r x n := by
+  -- apply Eventually.of_forall
+  -- intro N n
+  -- by_cases Nn : N ≤ n
+  -- · rw[SS, if_pos Nn, norm_zero, B]
+  --   apply pow_nonneg (norm_nonneg (a*↑r))
+  -- rw[SS, if_neg Nn, S, B]; repeat rw[norm_mul]
+  -- rw[norm_pow, norm_pow, norm_inv, norm_inv, norm_inv]
 
 
---   sorry
+  sorry
 
 
 
@@ -501,20 +502,47 @@ lemma EQ2_1 {x y : ℂ} {f : ℕ → ℂ} (x0 : x ≠ 0) : Tendsto (fun n ↦ x�
 #check tendsto_const_add_iff
 #check tendsto_const_smul_iff₀
 
-lemma EQ2_4 {a q x : ℂ} (n : ℕ) : Tendsto (fun N ↦ SS a q x n N) atTop (𝓝 (S a q x n)) := by
-  simp only [SS]
-  -- have : ∀ᶠ N in atTop, SS a q x n N = S a q x n * (W a q (N + n + 1) * W a q (N - n - 1)
-  --   * ((W q q (N + n + 1))⁻¹ * (W q q (N - n - 1))⁻¹)) := by sorry
-  suffices h : Tendsto (fun N ↦ S a q x n * (W a q (N + n + 1) * W a q (N - n - 1)
-      * ((W q q (N + n + 1))⁻¹ * (W q q (N - n - 1))⁻¹)) * (W q q N ^ 2 * W a q N ^ (-2:ℤ)))
-      atTop (𝓝 (S a q x n))
-  · sorry
-  nth_rw 2 [←mul_one (S a q x n)]; rw[←smul_eq_mul]
-  repeat rw[mul_assoc]
-  simp only [mul_assoc]
-  simp only [←smul_eq_mul (S a q x n)]
-  -- apply tendsto_const_smul_iff₀ (c := S a q x n) _
+lemma W_tendsto_1' {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) (m : ℕ):
+    Tendsto (fun n ↦ W a q (n-m)) atTop (𝓝 1) := by
   sorry
+lemma W_tendsto_1'' {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) (m : ℕ):
+    Tendsto (fun n ↦ W a q (n+m)) atTop (𝓝 1) := by
+  sorry
+lemma W_tendsto_1 {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) : Tendsto (W a q) atTop (𝓝 1) := by
+  exact W_tendsto_1'' h 0
+lemma h_5' {f : ℕ → ℂ} : Tendsto f atTop (𝓝 1) →
+    Tendsto (fun n ↦ (f n)⁻¹) atTop (𝓝 1) := by
+  nth_rw 2 [one_eq_inv.mpr rfl]; exact fun h ↦ Tendsto.inv₀ h (one_ne_zero)
+
+lemma EQ2_4 {a q x : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : ℕ) :
+    Tendsto (fun N ↦ SS a q x n N) atTop (𝓝 (S a q x n)) := by
+  simp only [SS]
+  suffices h : Tendsto (fun N ↦ S a q x n * (W a q (N + n + 1) * W a q (N - n - 1)
+      * ((W q q (N + n + 1))⁻¹ * (W q q (N - n - 1))⁻¹)) * (W q q N ^ 2 * (W a q N)⁻¹^2))
+      atTop (𝓝 (S a q x n * 1 * 1 * 1 * 1 * 1 * 1 * 1))
+  · repeat rw[mul_one] at h
+    apply Filter.Tendsto.congr' _ h
+    apply sets_of_superset (x := Set.Ici (n+1))
+    · simp only [Filter.mem_sets, mem_atTop_sets, ge_iff_le, Set.mem_Ici]; use (n+1); tauto
+    intro i ni; rw[Set.mem_Ici] at ni
+    dsimp; rw[if_neg (Nat.not_le_of_lt ni)]
+  simp only [mul_assoc]
+  apply Tendsto.mul tendsto_const_nhds
+  have haq : ∀ n : ℕ, a * q^n ≠ 1 := by sorry
+  have hqq : ∀ n : ℕ, q * q^n ≠ 1 := by sorry
+  repeat apply Tendsto.mul _
+  · apply h_5' (W_tendsto_1 haq)
+  · simp only [npowRec, one_mul]
+    apply h_5' (W_tendsto_1 haq)
+  · rw[←one_pow 2]
+    apply Tendsto.pow (W_tendsto_1 hqq)
+  · apply h_5'
+    simp only [Nat.sub_sub]
+    convert W_tendsto_1' hqq (n+1)
+  · apply h_5' (W_tendsto_1'' hqq (n+1))
+  · simp only [Nat.sub_sub]
+    convert W_tendsto_1' haq (n+1)
+  · apply (W_tendsto_1'' haq (n+1))
 
 lemma EQ2_6 {a q x : ℂ} : Multipliable fun n ↦ P a q x n := by
   -- Real.multipliable_of_summable_log
@@ -664,7 +692,7 @@ theorem eq_2' (a q x : ℂ) (q0 : q ≠ 0) (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (q
     rw[h]; field
   rw[EQ2_7 q0 a0 qN1 h₂ h₃, tendsto_const_add_iff]
   -- obtain ⟨r, r1, arN1⟩ := EQ2_2 a0 aN1
-  apply tendsto_tsum_of_dominated_convergence (EQ2_3 r) EQ2_4 (EQ2_5 r)
+  apply tendsto_tsum_of_dominated_convergence B_Summable (EQ2_4 aN1 qN1) (EQ2_5)
     <;> assumption
 
 end
