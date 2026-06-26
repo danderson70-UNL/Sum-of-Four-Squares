@@ -520,12 +520,11 @@ end B_lemmas
 
 
 noncomputable section SS_lemmas
-variable (a q x : ℂ)
 open Finset Filter Topology
 
 -- Some summands for a "helper" Summation in the proof
   -- Note it is shifted to be n ≥ 0 instead of n ≥ 1
-def SS (n N : ℕ) := if N ≤ n then 0 else (S a q x n)
+def SS (a q x : ℂ) (n N : ℕ) := if N ≤ n then 0 else (S a q x n)
   * ((W a q (N+n+1)) * (W a q (N-n-1)) * ((W q q (N+n+1))⁻¹ * (W q q (N-n-1))⁻¹))
   * ((W q q N)^2 * (W a q N)⁻¹^2)
 
@@ -572,10 +571,9 @@ def P (n : ℕ) := (1 - a*q^n*x + a^2*q^(2*n)) * (1 - q^(n+1)*x + q^(2*n+2))⁻�
   * ((1 - q^(n+1))^2 * (1 - a*q^n)⁻¹^2)
 
 -- The infinite product P converges
-lemma P_Multipliable {a q x : ℂ} : Multipliable fun n ↦ P a q x n := by
+-- lemma P_Multipliable {a q x : ℂ} : Multipliable (P a q x) := by sorry
   -- Real.multipliable_of_summable_log
   -- Real.log_le_sub_one_of_pos
-  sorry
 
 end P_lemmas
 
@@ -747,19 +745,33 @@ section EQ2
 open Finset Filter Topology
 
 -- Proving Equation 2
+-- theorem eq_2_Multipliable (a q x : ℂ) (q0 : q ≠ 0) (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
+--     (h₂ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) :
+--     ∃ limitP : ℂ, ∃ limitS : ℂ, HasProd (P a q x) limitP ∧ HasSum (S a q x) limitS
+--     ∧ (2-x)⁻¹ * limitP = (2-x)⁻¹ + limitS := by
+--   suffices h : Tendsto (fun N ↦ (2-x)⁻¹ * ∏ n ∈ range N, P a q x n)
+--       atTop (𝓝 ((2-x)⁻¹ + ∑' n : ℕ, S a q x n))
+--   · have x2 : (2 - x) ≠ 0 := by have := h₃ 0; simp at this; ring_nf at this; tauto
+--     rw[EQ2_1 x2] at h
+--     apply (Multipliable.hasProd_iff_tendsto_nat P_Multipliable).mpr at h
+--     apply HasProd.tprod_eq at h
+--     use ∏' n : ℕ, P a q x n, ∑' n : ℕ, S a q x n
+--   refine ⟨Multipliable.hasProd P_Multipliable, Summable.hasSum (S_Summable a0 aN1 qN1 h₂ h₃), ?_⟩
+--     rw[h]; field
+--   rw[pEQ2 q0 a0 qN1 h₂ h₃, tendsto_const_add_iff]
+-- apply tendsto_tsum_of_dominated_convergence (B_Summable a0 aN1 qN1 h₂ h₃) (SS_Tendsto_S aN1 qN1)
+--       SS_Bounded_Eventually
+
 theorem eq_2 (a q x : ℂ) (q0 : q ≠ 0) (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
     (h₂ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) :
-    ∃ limitP : ℂ, ∃ limitS : ℂ, HasProd (P a q x) limitP ∧ HasSum (S a q x) limitS
-    ∧ (2-x)⁻¹ * limitP = (2-x)⁻¹ + limitS := by
+    ∃ limitP : ℂ, ∃ limitS : ℂ, Tendsto (fun N ↦ ∏ n ∈ range N, P a q x n) atTop (𝓝 limitP)
+    ∧ HasSum (S a q x) limitS ∧ (2-x)⁻¹ * limitP = (2-x)⁻¹ + limitS := by
   suffices h : Tendsto (fun N ↦ (2-x)⁻¹ * ∏ n ∈ range N, P a q x n)
       atTop (𝓝 ((2-x)⁻¹ + ∑' n : ℕ, S a q x n))
   · have x2 : (2 - x) ≠ 0 := by have := h₃ 0; simp at this; ring_nf at this; tauto
     rw[EQ2_1 x2] at h
-    apply (Multipliable.hasProd_iff_tendsto_nat P_Multipliable).mpr at h
-    apply HasProd.tprod_eq at h
-    use ∏' n : ℕ, P a q x n, ∑' n : ℕ, S a q x n
-    refine ⟨Multipliable.hasProd P_Multipliable, Summable.hasSum (S_Summable a0 aN1 qN1 h₂ h₃), ?_⟩
-    rw[h]; field
+    use ((2-x) * ((2-x)⁻¹ + ∑' (n : ℕ), S a q x n)), ∑' n : ℕ, S a q x n
+    exact ⟨h, Summable.hasSum (S_Summable a0 aN1 qN1 h₂ h₃), (by grind only [h₃ 0])⟩
   rw[pEQ2 q0 a0 qN1 h₂ h₃, tendsto_const_add_iff]
   apply tendsto_tsum_of_dominated_convergence (B_Summable a0 aN1 qN1 h₂ h₃) (SS_Tendsto_S aN1 qN1)
       SS_Bounded_Eventually
