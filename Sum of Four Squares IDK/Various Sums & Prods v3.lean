@@ -1,8 +1,59 @@
 import Mathlib
 
-noncomputable section Lemmas
-open Polynomial
+section Tendsto_Lemmas
+open Topology Filter
+-- Lemmas: Tendsto Manipulations
+lemma h_0 {f : ℕ → ℂ} : Tendsto f atTop (𝓝 1) →
+    Tendsto (fun n ↦ ‖f n‖) atTop (𝓝 1) := by
+  rw[←norm_one (α := ℝ)]; convert Tendsto.norm; rw[norm_one, norm_one]
+lemma h_1 {f g : ℕ → ℂ} {c : ℂ} : Tendsto f atTop (𝓝 c) →
+    Tendsto g atTop (𝓝 0) → Tendsto (fun n ↦ f n + g n) atTop (𝓝 c) := by
+  nth_rw 2 [←add_zero c]; apply Tendsto.add
+lemma h_2 {f g : ℕ → ℂ} {c : ℂ} : Tendsto f atTop (𝓝 c) →
+    Tendsto g atTop (𝓝 0) → Tendsto (fun n ↦ f n - g n) atTop (𝓝 c) := by
+  nth_rw 2 [←sub_zero c]; apply Tendsto.sub
+lemma h_3 {f : ℕ → ℂ} {c : ℂ} : Tendsto f atTop (𝓝 0) →
+    Tendsto (fun n ↦ c * f n) atTop (𝓝 0) := by
+  nth_rw 2 [←mul_zero c]; apply Tendsto.const_mul
+lemma h_4 {f : ℕ → ℂ} {c : ℂ} : Tendsto f atTop (𝓝 0) →
+    Tendsto (fun n ↦ f n * c) atTop (𝓝 0) := by
+  nth_rw 2 [←zero_mul c]; apply Tendsto.mul_const
+lemma h_5 {f : ℕ → ℝ} : Tendsto f atTop (𝓝 1) →
+    Tendsto (fun n ↦ (f n)⁻¹) atTop (𝓝 1) := by
+    nth_rw 2 [one_eq_inv.mpr rfl]; exact fun h ↦ Tendsto.inv₀ h (one_ne_zero)
+lemma h_6 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(n+1)) atTop (𝓝 0) := by
+  rw[(by ext; ring : (fun n ↦ q^(n+1)) = fun n ↦ q * q^n)]
+  apply h_3 (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
+lemma h_7 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(n+2)) atTop (𝓝 0) := by
+  rw[(by ext; ring : (fun n ↦ q^(n+2)) = fun n ↦ q^2 * q^n)]
+  apply h_3 (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
+lemma h_8 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(2*n+2)) atTop (𝓝 0) := by
+  rw[(by ext; ring : (fun n ↦ q^(2*n+2)) = fun n ↦ q^(n+1) * q^(n+1)), ←zero_mul 0]
+  apply Tendsto.mul <;> exact h_6 qN1
+lemma h_9 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(2*n+4)) atTop (𝓝 0) := by
+  rw[(by ext; ring : (fun n ↦ q^(2*n+4)) = fun n ↦ q^(n+2) * q^(n+2)), ←zero_mul 0]
+  apply Tendsto.mul <;> exact h_7 qN1
+lemma EQ2_1 {x y : ℂ} {f : ℕ → ℂ} (x0 : x ≠ 0) : Tendsto (fun n ↦ x⁻¹ * f n) atTop (𝓝 y) ↔
+    Tendsto f atTop (𝓝 (x*y)) := by
+  nth_rw 1 [←inv_mul_cancel_left₀ x0 y]
+  have : x * y = x • y := by exact Eq.symm (smul_eq_mul x y)
+  have : (fun n ↦ x⁻¹ * f n) = (fun n ↦ x⁻¹ • f n) := by ext; rw[smul_eq_mul]
+  rw[this, ←smul_eq_mul x⁻¹]
+  rw[tendsto_const_smul_iff₀ (inv_ne_zero x0)]
+macro "mul_rw" a:term "AND" b:term : tactic => `(tactic| (
+  repeat rw[mul_right_comm _ $a];
+  repeat rw[mul_right_comm _ $b];
+  rw[mul_assoc]
+))
+end Tendsto_Lemmas
 
+section W_Lemmas
+open Finset Topology Filter Polynomial
+
+-- The (a; q)_n notation
+def W (a q : ℂ) (n : ℕ) := ∏ i ∈ range n, (1 - a * q^i)
+
+-- Showing that W and its terms are nonzero
 lemma pow_ne_one {q : ℂ} {x : ℕ} (h : ‖q‖ < 1) (x0 : x ≠ 0) : 1 - q^x ≠ 0 := by
   intro eq
   apply eq_of_sub_eq_zero at eq
@@ -18,20 +69,37 @@ lemma pow_ne_one' {a q : ℂ} (ha : ‖a‖ < 1) (hq : ‖q‖ < 1) (x : ℕ) : 
   have := mul_lt_mul' hqx ha (norm_nonneg a) one_pos
   rw[one_mul] at this
   linarith
+lemma W0 {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : ℕ) : W a q n ≠ 0 := by
+  rw[W, prod_ne_zero_iff]
+  intro i _ eq
+  apply eq_of_sub_eq_zero at eq
+  apply_fun Norm.norm at eq
+  rw[norm_mul, norm_pow, norm_one] at eq
+  rw[eq] at aN1
+  have := pow_le_pow_left₀ (norm_nonneg q) qN1.le i
+  rw[one_pow] at this
+  have := mul_le_mul_of_nonneg_left this (norm_nonneg a)
+  linarith
+
+-- Limit of the factors of W
+lemma W_term_tendsto_1 {a q : ℂ} (qN1 : ‖q‖ < 1) (x : ℕ) :
+    Tendsto (fun n ↦ 1 - a*q^(n+x)) atTop (𝓝 1) := by
+  apply h_2 tendsto_const_nhds; apply h_3
+  apply Tendsto.comp (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1) (tendsto_add_atTop_nat (x))
+
+
+-- Tactic for evaluating polynomials
 macro "eval_poly" : tactic => `(tactic| (
   simp only [eval_finset_sum, eval_prod, eval_mul, eval_add, eval_sub, eval_X, eval_C, eval_one]
   ))
 
-end Lemmas
+end W_Lemmas
 
 
 
 noncomputable section EQ_1
 variable (a q : ℂ)
-open BigOperators Polynomial Finset
-
--- The (a; q)_n notation
-def W (n : ℕ) := ∏ i ∈ range n, (1 - a * q^i)
+open Finset BigOperators Polynomial
 
 -- The A_n
 -- Note A_0 simplifies to (W a q N)^2 / (W q q N)^2
@@ -287,62 +355,7 @@ def SS (n N : ℕ) := if N ≤ n then 0 else (S a q x n)
 -- The bounds used within the EQ_2 proof
 def B (n : ℕ) := ‖S a q x n‖ * 2
 
--- Lemmas: Tendsto Manipulations
-lemma h_0 {f : ℕ → ℂ} : Tendsto f atTop (𝓝 1) →
-    Tendsto (fun n ↦ ‖f n‖) atTop (𝓝 1) := by
-  rw[←norm_one (α := ℝ)]; convert Tendsto.norm; rw[norm_one, norm_one]
-lemma h_1 {f g : ℕ → ℂ} {c : ℂ} : Tendsto f atTop (𝓝 c) →
-    Tendsto g atTop (𝓝 0) → Tendsto (fun n ↦ f n + g n) atTop (𝓝 c) := by
-  nth_rw 2 [←add_zero c]; apply Tendsto.add
-lemma h_2 {f g : ℕ → ℂ} {c : ℂ} : Tendsto f atTop (𝓝 c) →
-    Tendsto g atTop (𝓝 0) → Tendsto (fun n ↦ f n - g n) atTop (𝓝 c) := by
-  nth_rw 2 [←sub_zero c]; apply Tendsto.sub
-lemma h_3 {f : ℕ → ℂ} {c : ℂ} : Tendsto f atTop (𝓝 0) →
-    Tendsto (fun n ↦ c * f n) atTop (𝓝 0) := by
-  nth_rw 2 [←mul_zero c]; apply Tendsto.const_mul
-lemma h_4 {f : ℕ → ℂ} {c : ℂ} : Tendsto f atTop (𝓝 0) →
-    Tendsto (fun n ↦ f n * c) atTop (𝓝 0) := by
-  nth_rw 2 [←zero_mul c]; apply Tendsto.mul_const
-lemma h_5 {f : ℕ → ℝ} : Tendsto f atTop (𝓝 1) →
-    Tendsto (fun n ↦ (f n)⁻¹) atTop (𝓝 1) := by
-    nth_rw 2 [one_eq_inv.mpr rfl]; exact fun h ↦ Tendsto.inv₀ h (one_ne_zero)
-lemma h_6 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(n+1)) atTop (𝓝 0) := by
-  rw[(by ext; ring : (fun n ↦ q^(n+1)) = fun n ↦ q * q^n)]
-  apply h_3 (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
-lemma h_7 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(n+2)) atTop (𝓝 0) := by
-  rw[(by ext; ring : (fun n ↦ q^(n+2)) = fun n ↦ q^2 * q^n)]
-  apply h_3 (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1)
-lemma h_8 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(2*n+2)) atTop (𝓝 0) := by
-  rw[(by ext; ring : (fun n ↦ q^(2*n+2)) = fun n ↦ q^(n+1) * q^(n+1)), ←zero_mul 0]
-  apply Tendsto.mul <;> exact h_6 qN1
-lemma h_9 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(2*n+4)) atTop (𝓝 0) := by
-  rw[(by ext; ring : (fun n ↦ q^(2*n+4)) = fun n ↦ q^(n+2) * q^(n+2)), ←zero_mul 0]
-  apply Tendsto.mul <;> exact h_7 qN1
-lemma EQ2_1 {x y : ℂ} {f : ℕ → ℂ} (x0 : x ≠ 0) : Tendsto (fun n ↦ x⁻¹ * f n) atTop (𝓝 y) ↔
-    Tendsto f atTop (𝓝 (x*y)) := by
-  nth_rw 1 [←inv_mul_cancel_left₀ x0 y]
-  have : x * y = x • y := by exact Eq.symm (smul_eq_mul x y)
-  have : (fun n ↦ x⁻¹ * f n) = (fun n ↦ x⁻¹ • f n) := by ext; rw[smul_eq_mul]
-  rw[this, ←smul_eq_mul x⁻¹]
-  rw[tendsto_const_smul_iff₀ (inv_ne_zero x0)]
-macro "mul_rw" a:term "AND" b:term : tactic => `(tactic| (
-  repeat rw[mul_right_comm _ $a];
-  repeat rw[mul_right_comm _ $b];
-  rw[mul_assoc]
-))
-
 -- Lemmas: Various things are nonzero
-lemma W0 {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : ℕ) : W a q n ≠ 0 := by
-  rw[W, prod_ne_zero_iff]
-  intro i _ eq
-  apply eq_of_sub_eq_zero at eq
-  apply_fun Norm.norm at eq
-  rw[norm_mul, norm_pow, norm_one] at eq
-  rw[eq] at aN1
-  have := pow_le_pow_left₀ (norm_nonneg q) qN1.le i
-  rw[one_pow] at this
-  have := mul_le_mul_of_nonneg_left this (norm_nonneg a)
-  linarith
 
 -- lemma Seq0 {a q x : ℂ} {N : ℕ} (h : a = 0 ∨ a = q * q ^ N) : ∀ n ≥ N, S a q x n = 0 := by
 --   by_cases a0 : a = 0
@@ -511,48 +524,84 @@ lemma P_Multipliable {a q x : ℂ} : Multipliable fun n ↦ P a q x n := by
   sorry
 
 -- Lemmas: SS converges to S
-lemma W_tendsto_1' {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) (m : ℕ):
-    Tendsto (fun n ↦ W a q (n-m)) atTop (𝓝 1) := by
-  sorry
-lemma W_tendsto_1'' {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) (m : ℕ):
-    Tendsto (fun n ↦ W a q (n+m)) atTop (𝓝 1) := by
-  sorry
-lemma W_tendsto_1 {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) : Tendsto (W a q) atTop (𝓝 1) := by
-  exact W_tendsto_1'' h 0
+-- lemma W_tendsto_1' {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) (m : ℕ):
+--     Tendsto (fun n ↦ W a q (n-m)) atTop (𝓝 1) := by
+--   sorry
+-- lemma W_tendsto_1'' {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) (m : ℕ):
+--     Tendsto (fun n ↦ W a q (n+m)) atTop (𝓝 1) := by
+--   sorry
+-- lemma W_tendsto_1 {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) : Tendsto (W a q) atTop (𝓝 1) := by
+--   exact W_tendsto_1'' h 0
 
-lemma h_5' {f : ℕ → ℂ} : Tendsto f atTop (𝓝 1) →
-    Tendsto (fun n ↦ (f n)⁻¹) atTop (𝓝 1) := by
-  nth_rw 2 [one_eq_inv.mpr rfl]; exact fun h ↦ Tendsto.inv₀ h (one_ne_zero)
+lemma WW_tendsto_1 {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x y : ℕ) :
+    Tendsto (fun N ↦ W a q (N+x) * (W a q (N+y))⁻¹) atTop (𝓝 1) := by
+  wlog hxy : x ≥ y generalizing x y with H
+  · have : (fun N ↦ W a q (N + x) * (W a q (N + y))⁻¹)
+        = (fun N ↦ (W a q (N + y) * (W a q (N + x))⁻¹)⁻¹) := by
+      ext N
+      have : (W a q (N + x)) ≠ 0 := W0 aN1 qN1 _
+      field
+    rw[this, ←inv_one]
+    apply Tendsto.inv₀ _ one_ne_zero
+    exact H y x (by linarith)
+  simp only [W]
+  suffices : Tendsto (fun N ↦ ∏ n ∈ Ico (N+y) (N+x), (1-a*q^n)) atTop (𝓝 1)
+  · apply Tendsto.congr _ this; intro N
+    have : (x-y) + (N+y) = N + x := by omega
+    nth_rw 2 [←this]
+    rw[pCA1, this]
+    have : (∏ n ∈ range (N + y), (1 - a * q ^ n)) ≠ 0 := by
+      rw[prod_ne_zero_iff]; rintro n -
+      exact pow_ne_one' aN1 qN1 n
+    rw[mul_right_comm, mul_inv_cancel₀ this, one_mul]
+  apply Tendsto.congr (f₁ := (fun N ↦ ∏ n ∈ range (x-y), (1 - a * q ^ (N+y+n))))
+  · intro N
+    pBij (fun n _ ↦ N + y + n) inv (fun m ↦ m - N - y)
+  have : 1 = ∏ n ∈ range (x - y), 1 := Eq.symm prod_const_one
+  nth_rw 2 [←prod_const_one (s := range (x-y))]
+  apply tendsto_finset_prod
+  simp only [add_assoc]
+  exact fun n _ ↦ W_term_tendsto_1 qN1 _
+
+lemma WW_tendsto_1' {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x y : ℕ) :
+    Tendsto (fun N ↦ W a q (N-x) * (W a q (N-y))⁻¹) atTop (𝓝 1) := by
+  have : Tendsto (fun N ↦ W a q (N+y) * (W a q (N+x))⁻¹) atTop (𝓝 1) := WW_tendsto_1 aN1 qN1 y x
+  have := Tendsto.comp (WW_tendsto_1 aN1 qN1 y x) (tendsto_sub_atTop_nat (x+y))
+  apply Filter.Tendsto.congr' _ this
+  apply sets_of_superset (x := Set.Ici (x+y))
+  · simp only [Filter.mem_sets, mem_atTop_sets, ge_iff_le, Set.mem_Ici]; use (x+y); tauto
+  intro i ni; rw[Set.mem_Ici] at ni
+  dsimp
+  rw[(by omega : i - (x+y) + y = i - x), (by omega : i - (x+y) + x = i - y)]
+
+-- lemma h_5' {f : ℕ → ℂ} : Tendsto f atTop (𝓝 1) →
+--     Tendsto (fun n ↦ (f n)⁻¹) atTop (𝓝 1) := by
+--   nth_rw 2 [one_eq_inv.mpr rfl]; exact fun h ↦ Tendsto.inv₀ h (one_ne_zero)
 
 lemma SS_Tendsto_S {a q x : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : ℕ) :
     Tendsto (fun N ↦ SS a q x n N) atTop (𝓝 (S a q x n)) := by
   simp only [SS]
-  suffices h : Tendsto (fun N ↦ S a q x n * (W a q (N + n + 1) * W a q (N - n - 1)
-      * ((W q q (N + n + 1))⁻¹ * (W q q (N - n - 1))⁻¹)) * (W q q N ^ 2 * (W a q N)⁻¹^2))
-      atTop (𝓝 (S a q x n * 1 * 1 * 1 * 1 * 1 * 1 * 1))
+  suffices h : Tendsto (fun N ↦ S a q x n * (W a q (N+n+1) * (W a q N)⁻¹)
+      * (W a q (N-n-1) * (W a q N)⁻¹) * (W q q N * (W q q (N+n+1))⁻¹)
+      * (W q q N * (W q q (N-n-1))⁻¹)) atTop (𝓝 (S a q x n * 1 * 1 * 1 * 1))
   · repeat rw[mul_one] at h
     apply Filter.Tendsto.congr' _ h
     apply sets_of_superset (x := Set.Ici (n+1))
     · simp only [Filter.mem_sets, mem_atTop_sets, ge_iff_le, Set.mem_Ici]; use (n+1); tauto
     intro i ni; rw[Set.mem_Ici] at ni
     dsimp; rw[if_neg (Nat.not_le_of_lt ni)]
-  simp only [mul_assoc]
-  apply Tendsto.mul tendsto_const_nhds
-  have haq : ∀ n : ℕ, a * q^n ≠ 1 := by intro n; have := pow_ne_one' aN1 qN1 n; grind only
-  have hqq : ∀ n : ℕ, q * q^n ≠ 1 := by intro n; have := pow_ne_one' qN1 qN1 n; grind only
-  repeat apply Tendsto.mul _
-  · apply h_5' (W_tendsto_1 haq)
-  · simp only [npowRec, one_mul]
-    apply h_5' (W_tendsto_1 haq)
-  · rw[←one_pow 2]
-    apply Tendsto.pow (W_tendsto_1 hqq)
-  · apply h_5'
-    simp only [Nat.sub_sub]
-    convert W_tendsto_1' hqq (n+1)
-  · apply h_5' (W_tendsto_1'' hqq (n+1))
+    ring
+  apply Tendsto.mul _
   · simp only [Nat.sub_sub]
-    convert W_tendsto_1' haq (n+1)
-  · apply (W_tendsto_1'' haq (n+1))
+    exact WW_tendsto_1' qN1 qN1 0 (n+1)
+  apply Tendsto.mul _
+  · exact WW_tendsto_1 qN1 qN1 0 (n+1)
+  apply Tendsto.mul _
+  · simp only [Nat.sub_sub]
+    exact WW_tendsto_1' aN1 qN1 (n+1) 0
+  apply Tendsto.mul _
+  · exact WW_tendsto_1 aN1 qN1 (n+1) 0
+  · exact tendsto_const_nhds
 
 -- Lemmas: Other
 lemma pEQ2_A {a q x : ℂ} : (fun n ↦ P a q x n) = (fun n ↦ Polynomial.eval x (Up a q (n+1))
