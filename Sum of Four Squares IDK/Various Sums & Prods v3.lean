@@ -1,5 +1,48 @@
 import Mathlib
 
+section tools_and_lemmas
+open Finset Polynomial
+
+-- For rewriting a Finset.prod as two Finset.prod's multiplied together
+macro "pUnion" : tactic => `(tactic| (
+  convert (prod_union _)
+  · ext n; rw[mem_union]; grind
+  · apply disjoint_left.mpr; grind
+  ))
+lemma prod_range_split (w : ℂ) {q : ℂ} {N m : ℕ} : ∏ n ∈ range (N+m), (1 - w*q^n)
+      = (∏ n ∈ range m, (1 - w*q^n)) * ∏ n ∈ Ico m (N+m), (1 - w*q^n) := by pUnion
+
+-- For rewriting a Finset.prod by shifting the terms
+macro "pBij" f:term " inv " g:term : tactic => `(tactic| (
+  apply prod_bij $f (by grind) (by grind) (by intro z _; let := $g z; use this; grind) (by grind)
+  ))
+
+-- A special version of pBij specifically designed for expressions that go between
+  -- a (1 - q*q^x) form and a (1 - q^(x+1)) form: See Section EQ1_lemmas
+macro "pBij'" f:term " inv " g:term : tactic => `(tactic| (
+  simp only [←pow_succ'];
+  simp only [←zpow_natCast];
+  pBij $f inv $g
+  ))
+
+-- Useful for rewriting terms in a product
+macro "mul_rw" a:term "AND" b:term : tactic => `(tactic| (
+  repeat rw[mul_right_comm _ $a];
+  repeat rw[mul_right_comm _ $b];
+  rw[mul_assoc]
+))
+
+-- For evaluating polynomials
+macro "eval_poly" : tactic => `(tactic| (
+  simp only [eval_finset_sum, eval_prod, eval_mul, eval_add, eval_sub, eval_X, eval_C, eval_one]
+  ))
+
+
+
+end tools_and_lemmas
+
+
+
 section Tendsto_Lemmas
 open Topology Filter
 -- Lemmas: Tendsto Manipulations
@@ -36,16 +79,13 @@ lemma h_9 {q : ℂ} (qN1 : ‖q‖ < 1) : Tendsto (fun n ↦ q^(2*n+4)) atTop (�
 lemma EQ2_1 {x y : ℂ} {f : ℕ → ℂ} (x0 : x ≠ 0) : Tendsto (fun n ↦ x⁻¹ * f n) atTop (𝓝 y) ↔
     Tendsto f atTop (𝓝 (x*y)) := by
   nth_rw 1 [←inv_mul_cancel_left₀ x0 y]
-  have : x * y = x • y := by exact Eq.symm (smul_eq_mul x y)
   have : (fun n ↦ x⁻¹ * f n) = (fun n ↦ x⁻¹ • f n) := by ext; rw[smul_eq_mul]
   rw[this, ←smul_eq_mul x⁻¹]
   rw[tendsto_const_smul_iff₀ (inv_ne_zero x0)]
-macro "mul_rw" a:term "AND" b:term : tactic => `(tactic| (
-  repeat rw[mul_right_comm _ $a];
-  repeat rw[mul_right_comm _ $b];
-  rw[mul_assoc]
-))
+
 end Tendsto_Lemmas
+
+
 
 section W_Lemmas
 open Finset Topology Filter Polynomial
@@ -54,13 +94,7 @@ open Finset Topology Filter Polynomial
 def W (a q : ℂ) (n : ℕ) := ∏ i ∈ range n, (1 - a * q^i)
 
 -- Showing that W and its terms are nonzero
-lemma pow_ne_one {q : ℂ} {x : ℕ} (h : ‖q‖ < 1) (x0 : x ≠ 0) : 1 - q^x ≠ 0 := by
-  intro eq
-  apply eq_of_sub_eq_zero at eq
-  have := pow_lt_pow_left₀ h (norm_nonneg q) x0
-  rw[←norm_pow q, ←eq, norm_one, one_pow] at this
-  linarith
-lemma pow_ne_one' {a q : ℂ} (ha : ‖a‖ < 1) (hq : ‖q‖ < 1) (x : ℕ) : 1 - a*q^x ≠ 0 := by
+lemma W0_terms {a q : ℂ} (ha : ‖a‖ < 1) (hq : ‖q‖ < 1) (x : ℕ) : 1 - a*q^x ≠ 0 := by
   have hqx := pow_le_pow_left₀ (norm_nonneg q) hq.le x; rw[one_pow] at hqx
   intro eq
   apply eq_of_sub_eq_zero at eq
@@ -68,6 +102,12 @@ lemma pow_ne_one' {a q : ℂ} (ha : ‖a‖ < 1) (hq : ‖q‖ < 1) (x : ℕ) : 
   rw[norm_one, norm_mul, norm_pow] at eq
   have := mul_lt_mul' hqx ha (norm_nonneg a) one_pos
   rw[one_mul] at this
+  linarith
+lemma W0_terms' {q : ℂ} {x : ℕ} (h : ‖q‖ < 1) (x0 : x ≠ 0) : 1 - q^x ≠ 0 := by
+  intro eq
+  apply eq_of_sub_eq_zero at eq
+  have := pow_lt_pow_left₀ h (norm_nonneg q) x0
+  rw[←norm_pow q, ←eq, norm_one, one_pow] at this
   linarith
 lemma W0 {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : ℕ) : W a q n ≠ 0 := by
   rw[W, prod_ne_zero_iff]
@@ -82,62 +122,67 @@ lemma W0 {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : ℕ) : W a q n
   linarith
 
 -- Limit of the factors of W
-lemma W_term_tendsto_1 {a q : ℂ} (qN1 : ‖q‖ < 1) (x : ℕ) :
+lemma W_terms_tendsto_1 {a q : ℂ} (qN1 : ‖q‖ < 1) (x : ℕ) :
     Tendsto (fun n ↦ 1 - a*q^(n+x)) atTop (𝓝 1) := by
   apply h_2 tendsto_const_nhds; apply h_3
   apply Tendsto.comp (tendsto_pow_atTop_nhds_zero_of_norm_lt_one qN1) (tendsto_add_atTop_nat (x))
 
+-- The quotient of two W terms approaches 1 if they always remain |x-y| away from each other.
+lemma WW_tendsto_1 {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x y : ℕ) :
+    Tendsto (fun N ↦ W a q (N+x) * (W a q (N+y))⁻¹) atTop (𝓝 1) := by
+  wlog hxy : x ≥ y generalizing x y with H
+  · have : (fun N ↦ W a q (N + x) * (W a q (N + y))⁻¹)
+        = (fun N ↦ (W a q (N + y) * (W a q (N + x))⁻¹)⁻¹) := by
+      ext N
+      have : (W a q (N + x)) ≠ 0 := W0 aN1 qN1 _
+      field
+    rw[this, ←inv_one]
+    apply Tendsto.inv₀ _ one_ne_zero
+    exact H y x (by linarith)
+  simp only [W]
+  suffices : Tendsto (fun N ↦ ∏ n ∈ Ico (N+y) (N+x), (1-a*q^n)) atTop (𝓝 1)
+  · apply Tendsto.congr _ this; intro N
+    have : (x-y) + (N+y) = N + x := by omega
+    nth_rw 2 [←this]
+    rw[prod_range_split, this]
+    have : (∏ n ∈ range (N + y), (1 - a * q ^ n)) ≠ 0 := by
+      rw[prod_ne_zero_iff]; rintro n -
+      exact W0_terms aN1 qN1 n
+    rw[mul_right_comm, mul_inv_cancel₀ this, one_mul]
+  apply Tendsto.congr (f₁ := (fun N ↦ ∏ n ∈ range (x-y), (1 - a * q ^ (N+y+n))))
+  · intro N
+    pBij (fun n _ ↦ N + y + n) inv (fun m ↦ m - N - y)
+  have : 1 = ∏ n ∈ range (x - y), 1 := Eq.symm prod_const_one
+  nth_rw 2 [←prod_const_one (s := range (x-y))]
+  apply tendsto_finset_prod
+  simp only [add_assoc]
+  exact fun n _ ↦ W_terms_tendsto_1 qN1 _
 
--- Tactic for evaluating polynomials
-macro "eval_poly" : tactic => `(tactic| (
-  simp only [eval_finset_sum, eval_prod, eval_mul, eval_add, eval_sub, eval_X, eval_C, eval_one]
-  ))
+lemma WW_tendsto_1' {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x y : ℕ) :
+    Tendsto (fun N ↦ W a q (N-x) * (W a q (N-y))⁻¹) atTop (𝓝 1) := by
+  have : Tendsto (fun N ↦ W a q (N+y) * (W a q (N+x))⁻¹) atTop (𝓝 1) := WW_tendsto_1 aN1 qN1 y x
+  have := Tendsto.comp (WW_tendsto_1 aN1 qN1 y x) (tendsto_sub_atTop_nat (x+y))
+  apply Filter.Tendsto.congr' _ this
+  apply sets_of_superset (x := Set.Ici (x+y))
+  · simp only [Filter.mem_sets, mem_atTop_sets, ge_iff_le, Set.mem_Ici]; use (x+y); tauto
+  intro i ni; rw[Set.mem_Ici] at ni
+  dsimp
+  rw[(by omega : i - (x+y) + y = i - x), (by omega : i - (x+y) + x = i - y)]
 
 end W_Lemmas
 
 
 
-noncomputable section EQ_1
-variable (a q : ℂ)
+section EQ1_lemmas
 open Finset BigOperators Polynomial
 
--- The A_n
--- Note A_0 simplifies to (W a q N)^2 / (W q q N)^2
-def A (N n : ℕ) := a^n * (W (a⁻¹ * q) q n) * (W a q n)⁻¹
-  * ((W a q (N+n)) * (W a q (N-n)) * ((W q q (N+n))⁻¹ * (W q q (N-n))⁻¹))
-  * if n = 0 then 1 else (1+q^n)
-
--- The numerator and denominator of the left side of (1)
--- Note Dw q 0 simplifies to 2 - X
-def Up (n : ℕ) : ℂ[X] := if n = 0 then 1 else 1 - C (a*q^(n-1)) * X + C (a^2*q^(2*n-2))
-def Dw (n : ℕ) : ℂ[X] := 1 - C (q^n) * X + C (q^(2*n))
-
--- The roots for each denominator
--- Note rt q 0 = 2
-def rt (n : ℕ) : ℂ := (1 + q^(2*n)) / q^n
-
 -- Lemmas: polyConditionA Unions
-macro "pUnion" : tactic => `(tactic| (
-  convert (prod_union _)
-  · ext n; rw[mem_union]; grind
-  · apply disjoint_left.mpr; grind
-  ))
-lemma pCA1 (w : ℂ) {q : ℂ} {N m : ℕ} : ∏ n ∈ range (N+m), (1 - w*q^n)
-      = (∏ n ∈ range m, (1 - w*q^n)) * ∏ n ∈ Ico m (N+m), (1 - w*q^n) := by pUnion
 lemma pCA2 {q : ℂ} {N m : ℕ} {h : m < N + 1} : ∏ n ∈ (range (N+1)).erase m, (1 - q ^ ((n:ℤ)-m))
       = (∏ n ∈ range m, (1 - q^((n:ℤ)-m))) * ∏ n ∈ Ioc m N, (1 - q^((n:ℤ)-m)) := by pUnion
 lemma pCA3 {a q : ℂ} {N m : ℕ} {h : m < N + 1} : ∏ n ∈ (range (N+1)).erase 0, (1 - a*q^((n:ℤ)-m-1))
       = (∏ n ∈ Icc 1 m, (1 - a*q^((n:ℤ)-m-1))) * ∏ n ∈ Ioc m N, (1 - a*q^((n:ℤ)-m-1)) := by pUnion
 
 -- Lemmas: polyConditionA Bound Changes
-macro "pBij" f:term " inv " g:term : tactic => `(tactic| (
-  apply prod_bij $f (by grind) (by grind) (by intro z _; let := $g z; use this; grind) (by grind)
-  ))
-macro "pBij'" f:term " inv " g:term : tactic => `(tactic| (
-  simp only [←pow_succ'];
-  simp only [←zpow_natCast];
-  pBij $f inv $g
-  ))
 lemma pCA4 {q : ℂ} {N m : ℕ} : ∏ n ∈ Ioc m N, (1 - q^((n:ℤ)-m))
   = ∏ n ∈ range (N-m), (1 - q*q^n) := by pBij' (fun x _ ↦ x - m - 1) inv (fun z ↦ z + m + 1)
 lemma pCA5 {a q : ℂ} {N m : ℕ} : ∏ n ∈ Ioc m N, (1 - a*q^((n:ℤ)-m-1))
@@ -157,18 +202,7 @@ lemma pCA9 {a q : ℂ} {m : ℕ} : ∏ n ∈ Icc 1 m, (1 - a⁻¹*q^((m:ℤ)+1-n
   pBij' (fun n _ ↦ m - n) inv (fun z ↦ m - z)
 
 -- Lemmas: polyConditionA Other
-lemma pCA10 {a q : ℂ} {N m : ℕ} {q0 : q ≠ 0} : ∏ n ∈ range (N + 1), eval (rt q m) (Up a q n)
-      = ∏ n ∈ (range (N + 1)).erase 0, ((1 - a*q^((n:ℤ)-m-1)) * (1 - a*q^((n:ℤ)+m-1))) := by
-  rw[←prod_erase (range (N+1)) (a := 0)]; swap
-  · simp only [Up, if_pos, eval_one]
-  · apply prod_congr rfl
-    intro n nE; apply mem_erase.mp at nE
-    simp only [rt, Up, if_neg nE.1, eval_mul, eval_add, eval_sub, eval_X, eval_C, eval_one]
-    field_simp; ring_nf
-    rw[mul_comm (q^m) (a^2), mul_assoc (a^2), mul_assoc (a^2)]
-    simp only [mul_comm _ a, mul_assoc a, ←zpow_natCast, ←zpow_add₀ q0]
-    grind
-lemma pCA11 {q : ℂ} {N m : ℕ} {h : m < N + 1} : (∏ n ∈ (range (N+1)).erase m, (1 - q^(n+m)))
+lemma pCA10 {q : ℂ} {N m : ℕ} {h : m < N + 1} : (∏ n ∈ (range (N+1)).erase m, (1 - q^(n+m)))
     * (if m = 0 then 1 else (1 + q^m)) = ∏ n ∈ Ico m (N+m), (1 - q*q^n) := by
   have : ∀ n : ℕ, q*q^n = q^(n+1) := by simp only [pow_succ']; tauto
   by_cases m0 : m = 0
@@ -178,6 +212,41 @@ lemma pCA11 {q : ℂ} {N m : ℕ} {h : m < N + 1} : (∏ n ∈ (range (N+1)).era
     rw[(by ring : (1 - q^m) * (1 + q^m) = (1 - q^(m + m))), erase_right_comm]
     rw[prod_erase_mul _ _ (by grind)]
     pBij (fun x _ ↦ x + m - 1) inv (fun z ↦ z + 1 - m)
+
+end EQ1_lemmas
+
+
+
+noncomputable section EQ1
+variable (a q : ℂ)
+open Finset BigOperators Polynomial
+
+-- The A_n
+-- Note A_0 simplifies to (W a q N)^2 / (W q q N)^2
+def A (N n : ℕ) := a^n * (W (a⁻¹ * q) q n) * (W a q n)⁻¹
+  * ((W a q (N+n)) * (W a q (N-n)) * ((W q q (N+n))⁻¹ * (W q q (N-n))⁻¹))
+  * if n = 0 then 1 else (1+q^n)
+
+-- The numerator and denominator of the left side of (1)
+-- Note Dw q 0 simplifies to 2 - X
+def Up (n : ℕ) : ℂ[X] := if n = 0 then 1 else 1 - C (a*q^(n-1)) * X + C (a^2*q^(2*n-2))
+def Dw (n : ℕ) : ℂ[X] := 1 - C (q^n) * X + C (q^(2*n))
+
+-- The roots for each denominator
+-- Note rt q 0 = 2
+def rt (n : ℕ) : ℂ := (1 + q^(2*n)) / q^n
+
+-- A lemma that relies on the definition of Up
+lemma pCA11 {a q : ℂ} {N m : ℕ} {q0 : q ≠ 0} : ∏ n ∈ range (N + 1), eval (rt q m) (Up a q n)
+      = ∏ n ∈ (range (N + 1)).erase 0, ((1 - a*q^((n:ℤ)-m-1)) * (1 - a*q^((n:ℤ)+m-1))) := by
+  rw[←prod_erase (range (N+1)) (by simp only [Up, if_pos, eval_one]) (a := 0)]
+  apply prod_congr rfl
+  intro n nE; apply mem_erase.mp at nE
+  simp only [rt, Up, if_neg nE.1]; eval_poly
+  field_simp; ring_nf
+  rw[mul_comm (q^m) (a^2), mul_assoc (a^2), mul_assoc (a^2)]
+  simp only [mul_comm _ a, mul_assoc a, ←zpow_natCast, ←zpow_add₀ q0]
+  grind
 
 -- Proving and Applying Equation 1
 lemma polyConditionA (a q : ℂ) (N : ℕ) (q0 : q ≠ 0) (a0 : a ≠ 0)
@@ -207,7 +276,7 @@ lemma polyConditionA (a q : ℂ) (N : ℕ) (q0 : q ≠ 0) (a0 : a ≠ 0)
     simp only [←zpow_natCast, ←zpow_add₀ q0, add_sub_cancel]
     rw[(by omega : (↑(m * 2) + ↑n + (↑n - ↑m)) = (m:ℤ) + ↑(n*2))]
     ring
-  rw[pCA1 a, pCA1 q, this, prod_mul_distrib]; clear this -- have := pCA11
+  rw[prod_range_split a, prod_range_split q, this, prod_mul_distrib]; clear this -- have := pCA10
   -- Rewriting the left side of the Dw term
   rw[pCA2 (h := mR), pCA4]
   have : (fun (n:ℕ) ↦ 1 - q^((n:ℤ)-m))
@@ -218,7 +287,7 @@ lemma polyConditionA (a q : ℂ) (N : ℕ) (q0 : q ≠ 0) (a0 : a ≠ 0)
   rw[this, prod_mul_distrib]; clear this
   rw[pCA6]
   -- Rewriting the Up term
-  rw[pCA10 (q0 := q0), prod_mul_distrib, pCA7, pCA3 (h := mR), pCA5]
+  rw[pCA11 (q0 := q0), prod_mul_distrib, pCA7, pCA3 (h := mR), pCA5]
   have : (fun (n:ℕ) ↦ (1 - a*q^((n:ℤ)-m-1)))
     = (fun (n:ℕ) ↦ a * (-q^((n:ℤ)-m-1)) * (1 - a⁻¹*q^((m:ℤ)+1-n))) := by
     ext n
@@ -234,10 +303,9 @@ lemma polyConditionA (a q : ℂ) (N : ℕ) (q0 : q ≠ 0) (a0 : a ≠ 0)
     apply prod_ne_zero_iff.mpr
     intro n _
     rw[mul_comm, ←pow_succ]
-    have := Nat.succ_ne_zero n
-    exact pow_ne_one h₁ this
+    exact W0_terms' h₁ (Nat.succ_ne_zero n)
   field_simp [fun s ↦ this s]
-  rw[mul_comm (if m = 0 then 1 else 1 + q ^ m), pCA11 (h := mR)]
+  rw[mul_comm (if m = 0 then 1 else 1 + q ^ m), pCA10 (h := mR)]
   ring
 
 lemma eq_1 (a q : ℂ) (N : ℕ) (q0 : q ≠ 0) (a0 : a ≠ 0)
@@ -307,9 +375,9 @@ lemma eq_1 (a q : ℂ) (N : ℕ) (q0 : q ≠ 0) (a0 : a ≠ 0)
           by_cases h : k = 0
           · rw[h, add_zero]
           · rcases eq with T | T
-            · have := pow_ne_one h₁ (by omega : 2*m + k ≠ 0)
+            · have := W0_terms' h₁ (by omega : 2*m + k ≠ 0)
               contradiction
-            · have : k = 0 := by by_contra; exact pow_ne_one h₁ this T
+            · have : k = 0 := by by_contra; exact W0_terms' h₁ this T
               rw[this, add_zero]
     · intro _ rL
       obtain ⟨m, mR, rfl⟩ := List.mem_map.mp rL
@@ -330,45 +398,19 @@ lemma eq_1_eval (a q x : ℂ) (N : ℕ) (q0 : q ≠ 0) (a0 : a ≠ 0)
   simp only [eval_finset_sum, eval_prod, eval_mul, eval_C] at eq
   exact eq
 
-end EQ_1
+end EQ1
 
-noncomputable section EQ_2
-variable (a q x : ℂ)
-open Finset Filter Topology
 
--- The factors in the Product of Equation 2
-  -- Note it is shifted to be n ≥ 0 instead of n ≥ 1
-def P (n : ℕ) := (1 - a*q^n*x + a^2*q^(2*n)) * (1 - q^(n+1)*x + q^(2*n+2))⁻¹
-  * ((1 - q^(n+1))^2 * (1 - a*q^n)⁻¹^2)
+
+noncomputable section S_lemmas
+open Finset Filter
 
 -- The summands in the Summation of Equation 2
   -- Note it is shifted to be n ≥ 0 instead of n ≥ 1
-def S (n : ℕ) := a^(n+1) * (W (a⁻¹*q) q (n+1)) * (1 + q^(n+1))
+def S (a q x : ℂ) (n : ℕ) := a^(n+1) * (W (a⁻¹*q) q (n+1)) * (1 + q^(n+1))
   * (W a q (n+1))⁻¹ * (1 - q^(n+1)*x + q^(2*n+2))⁻¹
 
--- Some summands for a "helper" Summation in the proof
-  -- Note it is shifted to be n ≥ 0 instead of n ≥ 1
-def SS (n N : ℕ) := if N ≤ n then 0 else (S a q x n)
-  * ((W a q (N+n+1)) * (W a q (N-n-1)) * ((W q q (N+n+1))⁻¹ * (W q q (N-n-1))⁻¹))
-  * ((W q q N)^2 * (W a q N)⁻¹^2)
-
--- The bounds used within the EQ_2 proof
-def B (n : ℕ) := ‖S a q x n‖ * 2
-
--- Lemmas: Various things are nonzero
-
--- lemma Seq0 {a q x : ℂ} {N : ℕ} (h : a = 0 ∨ a = q * q ^ N) : ∀ n ≥ N, S a q x n = 0 := by
---   by_cases a0 : a = 0
---   · intros; rw[a0, S]; ring
---   have := Or.resolve_left h a0
---   intro n nN
---   have : W (a⁻¹*q) q (n+1) = 0 := by
---     rw[W]; apply prod_eq_zero (mem_range.mpr (by omega : N < n+1))
---     rw[mul_assoc, ←this]
---     field
---   rw[S, this]
---   ring
-
+-- S is nonzero for large enough N
 lemma S0_eventually {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
     (h' : ∀ N : ℕ, a ≠ q*q^N) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) :
     ∀ᶠ (n : ℕ) in atTop, S a q x n ≠ 0 := by
@@ -391,9 +433,7 @@ lemma S0_eventually {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q
   · exact inv_ne_zero (W0 aN1 qN1 (n+1))
   · exact inv_ne_zero (h₃ _)
 
-
-
--- S and B are summable, and S is bounded
+-- S is summable and bounded
 lemma S_Summable {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
     (h₂ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) : Summable (S a q x) := by
   by_cases h' : ∃ N : ℕ, a = q*q^N
@@ -447,137 +487,53 @@ lemma S_Summable {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖
     field
   rw[this]
   repeat apply Filter.Tendsto.mul
-  · exact tendsto_const_nhds_iff.mpr rfl
-  · apply h_0; apply h_2 (tendsto_const_nhds_iff.mpr rfl); apply h_3 (h_7 qN1)
-  · apply h_0; apply h_1 (tendsto_const_nhds_iff.mpr rfl) (h_7 qN1)
+  · exact tendsto_const_nhds
+  · apply h_0; apply h_2 tendsto_const_nhds; apply h_3 (h_7 qN1)
+  · apply h_0; apply h_1 tendsto_const_nhds (h_7 qN1)
   · apply h_0; apply h_1 _ (h_8 qN1)
-    apply h_2 (tendsto_const_nhds_iff.mpr rfl)
+    apply h_2 tendsto_const_nhds
     apply h_4; apply h_6 qN1
-  · apply h_5; apply h_0; apply h_2 (tendsto_const_nhds_iff.mpr rfl)
+  · apply h_5; apply h_0; apply h_2 tendsto_const_nhds
     apply h_3 (h_6 qN1)
-  · apply h_5; apply h_0; apply h_1 (tendsto_const_nhds_iff.mpr rfl) (h_6 qN1)
+  · apply h_5; apply h_0; apply h_1 tendsto_const_nhds (h_6 qN1)
   · apply h_5; apply h_0; apply h_1
-    · apply h_2 (tendsto_const_nhds_iff.mpr rfl); apply h_4 (h_7 qN1)
+    · apply h_2 tendsto_const_nhds; apply h_4 (h_7 qN1)
     · apply h_9 qN1
 
--- lemma S_bounded {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
---     (h₂ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) :
---     ∃ B : ℝ, ∀ n : ℕ, ‖S a q x n‖ ≤ B := by
---   have T := (S_Summable a0 aN1 qN1 h₂ h₃).tendsto_atTop_zero
---   obtain ⟨B, T⟩ := Bornology.IsBounded.exists_norm_le (Metric.isBounded_range_of_tendsto _ T)
---   use B; intro n
---   exact norm_norm (S a q x n) ▸ T (S a q x n) (Set.mem_range.mpr ⟨n, rfl⟩)
+end S_lemmas
 
+
+
+noncomputable section B_lemmas
+
+-- The bounds used within the EQ_2 proof
+def B (a q x : ℂ) (n : ℕ) := ‖S a q x n‖ * 2
+
+-- The series B converges
 lemma B_Summable {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
     (h₂ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) : Summable (B a q x) := by
   apply Summable.mul_right
   exact Summable.norm (S_Summable a0 aN1 qN1 h₂ h₃)
 
--- Bounds result
--- lemma W_bounded (a : ℂ) {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ bound : ℝ, ∀ n : ℕ, ‖W a q n‖ ≤ bound := by
---   -- #check Multipliable.tendsto_prod_tprod_nat
---   suffices W_conv : ∃ l, Tendsto (fun n ↦ ‖W a q n‖) atTop (𝓝 l)
---   · rcases W_conv with ⟨l, h⟩
---     obtain ⟨B, h⟩ := Bornology.IsBounded.exists_norm_le (Metric.isBounded_range_of_tendsto _ h)
---     use B; intro n
---     exact norm_norm (W a q n) ▸ h ‖W a q n‖ (Set.mem_range.mpr ⟨n, rfl⟩)
---   use ∏' n : ℕ, ‖1 - a*q^n‖
---   have : (fun n ↦ ‖W a q n‖) = fun n ↦ ∏ i ∈ range n, ‖1 - a*q^i‖ := by
---     ext n
---     rw[W, norm_prod]
---   rw[this]; apply Multipliable.tendsto_prod_tprod_nat
---   rw[(by ext; ring_nf : (fun i ↦ ‖1 - a*q^i‖) = fun i ↦ ‖1 + -a*q^i‖)]
---   apply multipliable_norm_one_add_of_summable_norm
---   rw[(by ext; simp : (fun n ↦ ‖-a*q^n‖) = fun n ↦ ‖a‖*‖q‖^n)]
---   apply Summable.mul_left
---   refine summable_geometric_of_lt_one (norm_nonneg q) qN1
-
--- lemma Winv_bounded (a : ℂ) {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ᶠ n : ℕ in atTop, ‖W a q n‖⁻¹ < 2 := by
---   sorry
-
--- Lemmas about B
--- lemma EQ2_2 {a : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) : ∃ r : ℝ, (r > 1) ∧ (‖a * r‖ < 1) := by
---   have aN0 := norm_ne_zero_iff.mpr a0
---   have aNpos := norm_pos_iff.mpr a0
---   have : ‖a‖⁻¹ > 1 := (one_lt_inv₀ aNpos).mpr aN1
---   obtain ⟨r, r1, hr⟩ : ∃ r : ℝ, 1 < r ∧ r < ‖a‖⁻¹ := exists_between this
---   have rNormEq : ‖(r:ℂ)‖ = r := by refine Complex.norm_of_nonneg (by linarith)
---   use r, r1
---   rw[norm_mul, ←mul_inv_cancel₀ aN0]
---   apply mul_lt_mul' (le_refl _) (rNormEq ▸ hr : ) (norm_nonneg _) (norm_pos_iff.mpr a0)
-
--- lemma EQ2_3 {a : ℂ} {r : ℝ} {arN1 : ‖a * r‖ < 1} : Summable (fun n ↦ ‖SS a q x n N‖) := by
---   apply (summable_nat_add_iff 1).mpr
---   apply summable_geometric_of_abs_lt_one
---   rwa[←Real.norm_eq_abs, norm_norm]
+end B_lemmas
 
 
--- lemma EQ2_5_1 { a q x : ℂ} : ∀ᶠ (N : ℕ) in atTop, ∀ (n : ℕ), ‖S a q x ‖
+
+noncomputable section SS_lemmas
+variable (a q x : ℂ)
+open Finset Filter Topology
+
+-- Some summands for a "helper" Summation in the proof
+  -- Note it is shifted to be n ≥ 0 instead of n ≥ 1
+def SS (n N : ℕ) := if N ≤ n then 0 else (S a q x n)
+  * ((W a q (N+n+1)) * (W a q (N-n-1)) * ((W q q (N+n+1))⁻¹ * (W q q (N-n-1))⁻¹))
+  * ((W q q N)^2 * (W a q N)⁻¹^2)
 
 lemma SS_Bounded_Eventually {a q x : ℂ} :
     ∀ᶠ (N : ℕ) in atTop, ∀ (n : ℕ), ‖SS a q x n N‖ ≤ B a q x n := by
   sorry
 
-lemma P_Multipliable {a q x : ℂ} : Multipliable fun n ↦ P a q x n := by
-  -- Real.multipliable_of_summable_log
-  -- Real.log_le_sub_one_of_pos
-  sorry
-
--- Lemmas: SS converges to S
--- lemma W_tendsto_1' {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) (m : ℕ):
---     Tendsto (fun n ↦ W a q (n-m)) atTop (𝓝 1) := by
---   sorry
--- lemma W_tendsto_1'' {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) (m : ℕ):
---     Tendsto (fun n ↦ W a q (n+m)) atTop (𝓝 1) := by
---   sorry
--- lemma W_tendsto_1 {a q : ℂ} (h : ∀ n : ℕ, a * q^n ≠ 1) : Tendsto (W a q) atTop (𝓝 1) := by
---   exact W_tendsto_1'' h 0
-
-lemma WW_tendsto_1 {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x y : ℕ) :
-    Tendsto (fun N ↦ W a q (N+x) * (W a q (N+y))⁻¹) atTop (𝓝 1) := by
-  wlog hxy : x ≥ y generalizing x y with H
-  · have : (fun N ↦ W a q (N + x) * (W a q (N + y))⁻¹)
-        = (fun N ↦ (W a q (N + y) * (W a q (N + x))⁻¹)⁻¹) := by
-      ext N
-      have : (W a q (N + x)) ≠ 0 := W0 aN1 qN1 _
-      field
-    rw[this, ←inv_one]
-    apply Tendsto.inv₀ _ one_ne_zero
-    exact H y x (by linarith)
-  simp only [W]
-  suffices : Tendsto (fun N ↦ ∏ n ∈ Ico (N+y) (N+x), (1-a*q^n)) atTop (𝓝 1)
-  · apply Tendsto.congr _ this; intro N
-    have : (x-y) + (N+y) = N + x := by omega
-    nth_rw 2 [←this]
-    rw[pCA1, this]
-    have : (∏ n ∈ range (N + y), (1 - a * q ^ n)) ≠ 0 := by
-      rw[prod_ne_zero_iff]; rintro n -
-      exact pow_ne_one' aN1 qN1 n
-    rw[mul_right_comm, mul_inv_cancel₀ this, one_mul]
-  apply Tendsto.congr (f₁ := (fun N ↦ ∏ n ∈ range (x-y), (1 - a * q ^ (N+y+n))))
-  · intro N
-    pBij (fun n _ ↦ N + y + n) inv (fun m ↦ m - N - y)
-  have : 1 = ∏ n ∈ range (x - y), 1 := Eq.symm prod_const_one
-  nth_rw 2 [←prod_const_one (s := range (x-y))]
-  apply tendsto_finset_prod
-  simp only [add_assoc]
-  exact fun n _ ↦ W_term_tendsto_1 qN1 _
-
-lemma WW_tendsto_1' {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x y : ℕ) :
-    Tendsto (fun N ↦ W a q (N-x) * (W a q (N-y))⁻¹) atTop (𝓝 1) := by
-  have : Tendsto (fun N ↦ W a q (N+y) * (W a q (N+x))⁻¹) atTop (𝓝 1) := WW_tendsto_1 aN1 qN1 y x
-  have := Tendsto.comp (WW_tendsto_1 aN1 qN1 y x) (tendsto_sub_atTop_nat (x+y))
-  apply Filter.Tendsto.congr' _ this
-  apply sets_of_superset (x := Set.Ici (x+y))
-  · simp only [Filter.mem_sets, mem_atTop_sets, ge_iff_le, Set.mem_Ici]; use (x+y); tauto
-  intro i ni; rw[Set.mem_Ici] at ni
-  dsimp
-  rw[(by omega : i - (x+y) + y = i - x), (by omega : i - (x+y) + x = i - y)]
-
--- lemma h_5' {f : ℕ → ℂ} : Tendsto f atTop (𝓝 1) →
---     Tendsto (fun n ↦ (f n)⁻¹) atTop (𝓝 1) := by
---   nth_rw 2 [one_eq_inv.mpr rfl]; exact fun h ↦ Tendsto.inv₀ h (one_ne_zero)
-
+-- SS converges to S as N → ∞
 lemma SS_Tendsto_S {a q x : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : ℕ) :
     Tendsto (fun N ↦ SS a q x n N) atTop (𝓝 (S a q x n)) := by
   simp only [SS]
@@ -602,6 +558,89 @@ lemma SS_Tendsto_S {a q x : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : �
   apply Tendsto.mul _
   · exact WW_tendsto_1 aN1 qN1 (n+1) 0
   · exact tendsto_const_nhds
+
+end SS_lemmas
+
+
+
+noncomputable section P_lemmas
+variable (a q x : ℂ)
+
+-- The factors in the Product of Equation 2
+  -- Note it is shifted to be n ≥ 0 instead of n ≥ 1
+def P (n : ℕ) := (1 - a*q^n*x + a^2*q^(2*n)) * (1 - q^(n+1)*x + q^(2*n+2))⁻¹
+  * ((1 - q^(n+1))^2 * (1 - a*q^n)⁻¹^2)
+
+-- The infinite product P converges
+lemma P_Multipliable {a q x : ℂ} : Multipliable fun n ↦ P a q x n := by
+  -- Real.multipliable_of_summable_log
+  -- Real.log_le_sub_one_of_pos
+  sorry
+
+end P_lemmas
+
+
+
+section EQ2_lemmas
+open Finset
+
+-- lemma Seq0 {a q x : ℂ} {N : ℕ} (h : a = 0 ∨ a = q * q ^ N) : ∀ n ≥ N, S a q x n = 0 := by
+--   by_cases a0 : a = 0
+--   · intros; rw[a0, S]; ring
+--   have := Or.resolve_left h a0
+--   intro n nN
+--   have : W (a⁻¹*q) q (n+1) = 0 := by
+--     rw[W]; apply prod_eq_zero (mem_range.mpr (by omega : N < n+1))
+--     rw[mul_assoc, ←this]
+--     field
+--   rw[S, this]
+--   ring
+
+-- lemma S_bounded {a q x : ℂ} (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
+--     (h₂ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) :
+--     ∃ B : ℝ, ∀ n : ℕ, ‖S a q x n‖ ≤ B := by
+--   have T := (S_Summable a0 aN1 qN1 h₂ h₃).tendsto_atTop_zero
+--   obtain ⟨B, T⟩ := Bornology.IsBounded.exists_norm_le (Metric.isBounded_range_of_tendsto _ T)
+--   use B; intro n
+--   exact norm_norm (S a q x n) ▸ T (S a q x n) (Set.mem_range.mpr ⟨n, rfl⟩)
+
+-- Bounds result
+-- lemma W_bounded (a : ℂ) {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ bound : ℝ, ∀ n : ℕ, ‖W a q n‖ ≤ bound := by
+--   -- #check Multipliable.tendsto_prod_tprod_nat
+--   suffices W_conv : ∃ l, Tendsto (fun n ↦ ‖W a q n‖) atTop (𝓝 l)
+--   · rcases W_conv with ⟨l, h⟩
+--     obtain ⟨B, h⟩ := Bornology.IsBounded.exists_norm_le (Metric.isBounded_range_of_tendsto _ h)
+--     use B; intro n
+--     exact norm_norm (W a q n) ▸ h ‖W a q n‖ (Set.mem_range.mpr ⟨n, rfl⟩)
+--   use ∏' n : ℕ, ‖1 - a*q^n‖
+--   have : (fun n ↦ ‖W a q n‖) = fun n ↦ ∏ i ∈ range n, ‖1 - a*q^i‖ := by
+--     ext n
+--     rw[W, norm_prod]
+--   rw[this]; apply Multipliable.tendsto_prod_tprod_nat
+--   rw[(by ext; ring_nf : (fun i ↦ ‖1 - a*q^i‖) = fun i ↦ ‖1 + -a*q^i‖)]
+--   apply multipliable_norm_one_add_of_summable_norm
+--   rw[(by ext; simp : (fun n ↦ ‖-a*q^n‖) = fun n ↦ ‖a‖*‖q‖^n)]
+--   apply Summable.mul_left
+--   refine summable_geometric_of_lt_one (norm_nonneg q) qN1
+
+-- lemma Winv_bounded (a : ℂ) {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ᶠ n : ℕ in atTop, ‖W a q n‖⁻¹ < 2 := by
+--   sorry
+
+
+-- lemma EQ2_3 {a : ℂ} {r : ℝ} {arN1 : ‖a * r‖ < 1} : Summable (fun n ↦ ‖SS a q x n N‖) := by
+--   apply (summable_nat_add_iff 1).mpr
+--   apply summable_geometric_of_abs_lt_one
+--   rwa[←Real.norm_eq_abs, norm_norm]
+
+
+-- lemma EQ2_5_1 { a q x : ℂ} : ∀ᶠ (N : ℕ) in atTop, ∀ (n : ℕ), ‖S a q x ‖
+
+
+-- lemma h_5' {f : ℕ → ℂ} : Tendsto f atTop (𝓝 1) →
+--     Tendsto (fun n ↦ (f n)⁻¹) atTop (𝓝 1) := by
+--   nth_rw 2 [one_eq_inv.mpr rfl]; exact fun h ↦ Tendsto.inv₀ h (one_ne_zero)
+
+
 
 -- Lemmas: Other
 lemma pEQ2_A {a q x : ℂ} : (fun n ↦ P a q x n) = (fun n ↦ Polynomial.eval x (Up a q (n+1))
@@ -634,7 +673,7 @@ lemma EQ2_CA (a q x : ℂ) (N : ℕ) (qN1 : ‖q‖ < 1) (h₂ : ∀ n : ℕ, 1-
     rw[prod_ne_zero_iff]
     intro n _
     rw[←pow_succ']
-    apply pow_ne_one qN1 (Nat.succ_ne_zero n)
+    apply W0_terms' qN1 (Nat.succ_ne_zero n)
   have : (∏ i ∈ range N, (1 - a * q ^ i)) ≠ 0 := by
     rw[prod_ne_zero_iff]
     intro n _
@@ -700,8 +739,15 @@ lemma pEQ2 {a q x : ℂ} (q0 : q ≠ 0) (a0 : a ≠ 0) (qN1 : ‖q‖ < 1)
   rw[prod_pow, prod_inv_distrib, ←W]
   rw[pEQ2_C qN1 h₂]
 
+end EQ2_lemmas
+
+
+
+section EQ2
+open Finset Filter Topology
+
 -- Proving Equation 2
-theorem eq_2' (a q x : ℂ) (q0 : q ≠ 0) (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
+theorem eq_2 (a q x : ℂ) (q0 : q ≠ 0) (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
     (h₂ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₃ : ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0) :
     ∃ limitP : ℂ, ∃ limitS : ℂ, HasProd (P a q x) limitP ∧ HasSum (S a q x) limitS
     ∧ (2-x)⁻¹ * limitP = (2-x)⁻¹ + limitS := by
@@ -718,4 +764,4 @@ theorem eq_2' (a q x : ℂ) (q0 : q ≠ 0) (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (q
   apply tendsto_tsum_of_dominated_convergence (B_Summable a0 aN1 qN1 h₂ h₃) (SS_Tendsto_S aN1 qN1)
       SS_Bounded_Eventually
 
-end EQ_2
+end EQ2
