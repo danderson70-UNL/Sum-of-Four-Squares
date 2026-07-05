@@ -1,8 +1,97 @@
 import Mathlib
 import «Sum of Four Squares IDK».«Power & Multilinear Series»
+import «Sum of Four Squares IDK».«Various Sums & Prods v3»
+set_option linter.style.whitespace false
 
-noncomputable section
-open Set Finset Topology
+noncomputable section prod_props
+open Finset
+
+-- Some general theorems
+theorem HasProd.in_pairs {f : ℕ → ℂ} {a : ℂ} (h : HasProd f a) :
+    HasProd (fun n ↦ f (2*n) * f (2*n+1)) a := by
+  apply HasProd.hasProd_of_prod_eq _ h
+  intro u
+  let v := u.biUnion (fun n ↦ {n/2})
+  use v; intro v' vv'
+  use v'.biUnion (fun n ↦ {2*n, 2*n+1})
+  constructor
+  · intro n nu
+    have : n = 2*(n/2) ∨ n = 2*(n/2)+1 := by omega
+    rw[Finset.mem_biUnion]; use n/2
+    refine ⟨vv' (mem_biUnion.mpr ⟨n, nu, by simp⟩), by simpa⟩
+  · rw[prod_biUnion]
+    · simp
+    intro m mv n nv mn
+    simp; omega
+
+example (f g : ℂ → ℂ) (a b : ℂ) (hf : HasProd f a) (hg : HasProd g b) :
+  HasProd (fun n ↦ f n * g n) (a*b) := HasProd.mul hf hg
+
+theorem HasProd.inv₀ {α β : Type*} {L : SummationFilter β} [CommGroupWithZero α]
+    [TopologicalSpace α] [ContinuousInv₀ α] [IsTopologicalGroup αˣ]
+    {f : β → α} {a : α} (h : HasProd f a L) (a0 : a ≠ 0) :
+    HasProd (fun n ↦ (f n)⁻¹) a⁻¹ L := by
+  have : (fun (s : Finset β) ↦ ∏ n ∈ s, (f n)⁻¹)
+      = (fun (s : Finset β) ↦ (∏ n ∈ s, f n)⁻¹) :=
+    by ext s; apply prod_inv_distrib
+  rw[HasProd, this]
+  apply Filter.Tendsto.inv₀ h a0
+
+example {f : ℕ → ℂ} {a : ℂ} (h : HasProd f a) (a0 : a ≠ 0) :
+    HasProd (fun n ↦ (f n)⁻¹) a⁻¹ := by
+  apply HasProd.inv₀ h a0
+
+-- Some theorems that are more specific
+lemma L_1 {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ b : ℂ, b ≠ 0 ∧ HasProd (fun n ↦ 1 - q^(n+1)) b := by
+  have : Multipliable (fun n ↦ 1-q^(n+1)) := by sorry
+  -- apply ModularForm.multipliable_one_sub_pow
+  obtain ⟨b, hb⟩ := this
+  use b; refine ⟨?_, hb⟩
+  intro rfl
+  simp only [sub_eq_add_neg] at hb
+  apply (tprod_one_add_ne_zero_of_summable _ _) (HasProd.tprod_eq hb)
+  · exact fun n ↦ W0_terms' qN1 (Nat.succ_ne_zero n)
+  · simp only [norm_neg, norm_pow]; simp only [pow_succ]
+    apply Summable.mul_right
+    exact summable_geometric_of_lt_one (norm_nonneg q) qN1
+
+lemma L_3 {q l : ℂ} (qN1 : ‖q‖ < 1) (h : HasProd (fun n ↦ (1-q^(2*n+1))^2 * (1-q^(2*n+2))) l) :
+    HasProd (fun n ↦ (1-q^(n+1)) * (1+q^(n+1))⁻¹) l := by
+  have : (fun n ↦ (1-q^(n+1)) * (1+q^(n+1))⁻¹)
+      = (fun n ↦ (1-q^(n+1))^2 * (1-q^(2*(n+1)))⁻¹) := by
+    ext n
+    rw[(by ring : 1-q^(2*(n+1)) = (1-q^(n+1))*(1+q^(n+1))), mul_inv]
+    have : 1-q^(n+1) ≠ 0 := by apply W0_terms' qN1 (Nat.succ_ne_zero _)
+    grobner
+  rw[this]; clear this
+  have : (fun n ↦ (1-q^(2*n+1))^2 * (1-q^(2*n+2)))
+      = (fun n ↦ (1-q^(2*n+1))^2 * (1-q^(2*n+2))^2 * (1-q^(2*(n+1)))⁻¹) := by
+    ext n
+    have : 1-q^(2*n+2) ≠ 0 := by apply W0_terms' qN1 (Nat.succ_ne_zero _)
+    grobner
+  rw[this] at h; clear this
+  obtain ⟨b, b0, hb⟩ := L_1 qN1
+  have ha_split := HasProd.in_pairs hb
+  have h := HasProd.mul ((ha_split.inv₀ b0).pow 2) h
+  rw[(by field : l = b^2 * (b⁻¹^2 * l))]
+  apply HasProd.mul (hb.pow 2)
+  have : (fun n ↦ ((1-q^(2*n+1)) * (1-q^(2*n+1+1)))⁻¹^2 * ((1-q^(2*n+1))^2 * (1-q^(2*n+2))^2
+      * (1-q^(2*(n+1)))⁻¹)) = (fun n ↦ (1-q^(2*(n+1)))⁻¹) := by
+    ext n
+    field [W0_terms' qN1]
+  rwa[this] at h
+
+end prod_props
+
+
+noncomputable section specific_prod_props
+
+
+end specific_prod_props
+
+
+noncomputable section d_lemmas
+open Finset
 
 variable (r m n : ℕ)
 def d := #{x ∈ range (n+1) | (x ∣ n) ∧ (x % m = r)}
@@ -10,45 +99,55 @@ def d := #{x ∈ range (n+1) | (x ∣ n) ∧ (x % m = r)}
 #eval d 1 4 9
 def U x := {q : ℂ | q ≠ 0 ∧ ‖q‖ < 1 ∧ ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0}
 
+end d_lemmas
+
+
+
+noncomputable section
+open Set Finset Topology
+
+
+example (f g : ℂ → ℂ) : f = g := by
+  have := AnalyticOnNhd.eqOn_of_preconnected_of_eventuallyEq
+      (sorry : AnalyticOnNhd ℂ f Set.univ) (sorry : AnalyticOnNhd ℂ g Set.univ)
+      (isPreconnected_univ) (Set.mem_univ 0 : 0 ∈ Set.univ) (sorry) (z₀ := 0)
+  exact (eqOn_univ f g).mp this
+
+
 
 -- lemma
 #check geom_series_eq_inverse
 lemma h (q : ℂ) (k : ‖q‖ < 1) : HasSum (fun n ↦ q^n) (1-q)⁻¹ := by
   exact hasSum_geometric_of_norm_lt_one k
 
-lemma negOnePow_mul_self (z : ℤ) : (-1:ℂ)^(z^2) = (-1:ℂ)^z := by
-  sorry
-
-lemma negOneZpow_even (z : ℤ) : (-1:ℂ)^(2*z) = 1 := by sorry
-
-lemma negOnePow_odd (n : ℕ) : (-1:ℂ)^(2*n+1) = -1 := by
-  rw[neg_one_pow_eq_pow_mod_two]
-  simp only [Nat.mul_add_mod_self_left, Nat.mod_succ, pow_one]
-
-lemma negOnePow_even (n : ℕ) : (-1:ℂ)^(2*n+2) = 1 := by
-  rw[neg_one_pow_eq_pow_mod_two]
-  simp only [Nat.add_mod_right, Nat.mul_mod_right, pow_zero]
-
-
-
 
 
 -- Results about the Jacobi Triple Product
-axiom jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) :
+def statementOf_jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) : Prop :=
     ∃ limit : ℂ, HasProd (fun n ↦ (1+a*q^(2*n+1)) * (1+a⁻¹*q^(2*n+1)) * (1-q^(2*n+2))) limit
     ∧ HasSum (fun z : ℤ ↦ a^z * q^(z^2)) limit
+-- axiom jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) :
+--   statementOf_jacobiTripleProduct a0 qN1
+-- variable (a q : ℂ) (a0 : a ≠ 0) (qN1 : ‖q‖ < 1)
+variable (jacobiTripleProduct : Π {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1), statementOf_jacobiTripleProduct a0 qN1)
+include jacobiTripleProduct
 
 lemma JTP_1 {q : ℂ} (qN1 : ‖q‖ < 1) :
-    ∃ limit : ℂ, HasProd (fun n ↦ (1 - q^(n+1)) * (1 + q^(n+1))⁻¹) limit
-    ∧ HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit := by
-  obtain ⟨l, prod, sum⟩ := jacobiTripleProduct (a := -1) (by grind only) qN1
-  use l; refine ⟨?_, sum⟩
-  sorry
+    ∃ limit : ℂ, HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit
+    ∧ HasProd (fun n ↦ (1 - q^(n+1)) * (1 + q^(n+1))⁻¹) limit := by
+  obtain ⟨l, prod, sum⟩ := jacobiTripleProduct (by grobner : (-1:ℂ) ≠ 0) qN1
+  use l; refine ⟨sum, ?_⟩; clear sum
+  simp only [neg_one_mul, (by ring : (-1:ℂ)⁻¹ = -1), ←sub_eq_add_neg, ←pow_two] at prod
+  apply L_3 qN1 prod
 
 lemma JTP_2 {q : ℂ} (qN1 : ‖q‖ < 1) :
     ∃ limit : ℂ, HasProd (fun n ↦
       ((1-q^(2*n+1)) * (1-q^(2*n+2))) * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹)) limit
     ∧ HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit := by
+  obtain ⟨l, prod, sum⟩ := JTP_1 qN1
+  
+
+
   sorry
 
 lemma JTP_3 {q : ℂ} (qN1 : ‖q‖ < 1) :
