@@ -1,6 +1,6 @@
 import Mathlib
-import «Sum of Four Squares IDK».«Power & Multilinear Series»
 import «Sum of Four Squares IDK».«Various Sums & Prods v3»
+
 set_option linter.style.whitespace false
 
 noncomputable section prod_props
@@ -43,9 +43,7 @@ example {f : ℕ → ℂ} {a : ℂ} (h : HasProd f a) (a0 : a ≠ 0) :
 
 -- Some theorems that are more specific
 lemma L_1 {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ b : ℂ, b ≠ 0 ∧ HasProd (fun n ↦ 1 - q^(n+1)) b := by
-  have : Multipliable (fun n ↦ 1-q^(n+1)) := by sorry
-  -- apply ModularForm.multipliable_one_sub_pow
-  obtain ⟨b, hb⟩ := this
+  obtain ⟨b, hb⟩ := ModularForm.multipliable_one_sub_pow qN1
   use b; refine ⟨?_, hb⟩
   intro rfl
   simp only [sub_eq_add_neg] at hb
@@ -84,12 +82,6 @@ lemma L_3 {q l : ℂ} (qN1 : ‖q‖ < 1) (h : HasProd (fun n ↦ (1-q^(2*n+1))^
 end prod_props
 
 
-noncomputable section specific_prod_props
-
-
-end specific_prod_props
-
-
 noncomputable section d_lemmas
 open Finset
 
@@ -104,14 +96,19 @@ end d_lemmas
 
 
 noncomputable section
-open Set Finset Topology
+open Topology
 
+lemma L_2 [Field α] (z : ℤ) {n : ℕ} (n0 : n ≠ 0) : (-1:α)^(z^n) = (-1:α)^z := by
+  by_cases h : Even z
+  · rw[Even.neg_one_zpow h, Even.neg_one_zpow (h.pow_of_ne_zero n0)]
+  · have h := by exact Int.not_even_iff_odd.mp h
+    rw[Odd.neg_one_zpow h, Odd.neg_one_zpow h.pow]
 
 example (f g : ℂ → ℂ) : f = g := by
   have := AnalyticOnNhd.eqOn_of_preconnected_of_eventuallyEq
       (sorry : AnalyticOnNhd ℂ f Set.univ) (sorry : AnalyticOnNhd ℂ g Set.univ)
       (isPreconnected_univ) (Set.mem_univ 0 : 0 ∈ Set.univ) (sorry) (z₀ := 0)
-  exact (eqOn_univ f g).mp this
+  exact (Set.eqOn_univ f g).mp this
 
 
 
@@ -129,26 +126,28 @@ def statementOf_jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 
 -- axiom jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) :
 --   statementOf_jacobiTripleProduct a0 qN1
 -- variable (a q : ℂ) (a0 : a ≠ 0) (qN1 : ‖q‖ < 1)
-variable (jacobiTripleProduct : Π {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1), statementOf_jacobiTripleProduct a0 qN1)
-include jacobiTripleProduct
+variable (jtp : Π {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1), statementOf_jacobiTripleProduct a0 qN1)
+include jtp
 
 lemma JTP_1 {q : ℂ} (qN1 : ‖q‖ < 1) :
     ∃ limit : ℂ, HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit
     ∧ HasProd (fun n ↦ (1 - q^(n+1)) * (1 + q^(n+1))⁻¹) limit := by
-  obtain ⟨l, prod, sum⟩ := jacobiTripleProduct (by grobner : (-1:ℂ) ≠ 0) qN1
+  obtain ⟨l, prod, sum⟩ := jtp (by grobner : (-1:ℂ) ≠ 0) qN1
   use l; refine ⟨sum, ?_⟩; clear sum
   simp only [neg_one_mul, (by ring : (-1:ℂ)⁻¹ = -1), ←sub_eq_add_neg, ←pow_two] at prod
   apply L_3 qN1 prod
 
 lemma JTP_2 {q : ℂ} (qN1 : ‖q‖ < 1) :
-    ∃ limit : ℂ, HasProd (fun n ↦
-      ((1-q^(2*n+1)) * (1-q^(2*n+2))) * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹)) limit
-    ∧ HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit := by
-  obtain ⟨l, prod, sum⟩ := JTP_1 qN1
-  
-
-
-  sorry
+    ∃ limit : ℂ, HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit
+    ∧ HasProd (fun n ↦ ((1-q^(2*n+1)) * (1-q^(2*n+2)))
+      * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹)) limit := by
+  obtain ⟨l, sum, prod⟩ := JTP_1 jtp qN1
+  use l; refine ⟨sum, ?_⟩
+  have : (fun n ↦ (1-q^(2*n+1)) * (1-q^(2*n+2)) * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹))
+      = (fun n ↦ (1-q^(2*n+1)) * (1+q^(2*n+1))⁻¹ * ((1-q^(2*n+2)) * (1+q^(2*n+2))⁻¹)) := by
+    ext n; ring
+  rw[this]
+  apply HasProd.in_pairs prod
 
 lemma JTP_3 {q : ℂ} (qN1 : ‖q‖ < 1) :
     ∃ limit : ℂ, HasProd (fun n ↦
@@ -158,7 +157,7 @@ lemma JTP_3 {q : ℂ} (qN1 : ‖q‖ < 1) :
   have : ‖-q^2‖ < 1 := by
     rw[Complex.norm_neg', norm_pow, ←one_pow 2]
     exact zpow_lt_zpow_left₀ two_pos (norm_nonneg q) qN1
-  obtain ⟨l, prod, sum⟩ := JTP_2 this
+  obtain ⟨l, sum, prod⟩ := JTP_2 jtp this
   use l; constructor
   · have : (fun n ↦
           (1-(-q^2)^(2*n+1)) * (1-(-q^2)^(2*n+2)) * ((1+(-q^2)^(2*n+2))⁻¹ * (1+(-q^2)^(2*n+1))⁻¹))
@@ -166,17 +165,17 @@ lemma JTP_3 {q : ℂ} (qN1 : ‖q‖ < 1) :
           * ((1+q^(2*n+2)) * (1-q^(2*n+1))⁻¹)) := by
       ext n
       repeat rw[neg_eq_neg_one_mul (q^2), mul_pow, mul_pow, ←pow_mul, ←pow_mul]
-      repeat rw[negOnePow_odd, negOnePow_even, one_mul]
-      rw[(by omega : 2*(2*n+2) = 4*n+4), (by omega : 2*(2*n+1) = 4*n+2)]
-      rw[(by ring : 1 - (-1) * (q^(4*n+2)) = 1 + (q^(4*n+2)))]
-      rw[(by ring : 1 + (-1) * (q^(4*n+2)) = 1 - (q^(4*n+2)))]
+      have : q - -l = q + l := by exact sub_neg_eq_add q l
+      rw[Odd.neg_one_pow (odd_two_mul_add_one n), neg_one_mul, sub_neg_eq_add, ←sub_eq_add_neg]
+      rw[(by omega : 2*n+2 = 2*(n+1)), Even.neg_one_pow (even_two_mul (n+1)), one_mul]
+      rw[(by omega : 2*(2*(n+1)) = 4*n+4), (by omega : 2*(2*n+1) = 4*n+2)]
       rw[(by field : (1 - q ^ (4 * n + 2))⁻¹ = (1 + q ^ (2 * n + 1))⁻¹ * (1 - q ^ (2 * n + 1))⁻¹)]
       ring
     simpa [this] using prod
   · have : (fun z:ℤ ↦ (-1)^z * (-q^2)^(z^2)) = (fun z ↦ q^(2*z^2)) := by
       ext z
-      rw[neg_eq_neg_one_mul (q^2), mul_zpow, negOnePow_mul_self, ←mul_assoc]
-      rw[←zpow_two, ←zpow_mul, mul_comm z, negOneZpow_even z, one_mul, zpow_mul]
+      rw[neg_eq_neg_one_mul (q^2), mul_zpow, L_2 z two_ne_zero, ←mul_assoc]
+      rw[←zpow_two, ←zpow_mul, mul_comm z, Even.neg_one_zpow (even_two_mul z), one_mul, zpow_mul]
       rfl
     simpa [this] using sum
 

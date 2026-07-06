@@ -1,4 +1,4 @@
-import «Sum of Four Squares IDK».Common
+import Mathlib
 
 
 theorem pqrss [CommMonoidWithZero α] [NormalizedGCDMonoid α] (a b c : α) :

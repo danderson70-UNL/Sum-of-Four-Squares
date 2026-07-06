@@ -34,7 +34,7 @@ macro "mul_rw" a:term "AND" b:term : tactic => `(tactic| (
 
 -- For evaluating polynomials
 macro "eval_poly" : tactic => `(tactic| (
-  simp only [eval_finset_sum, eval_prod, eval_mul, eval_add, eval_sub, eval_X, eval_C, eval_one]
+  simp only [eval_finsetSum, eval_prod, eval_mul, eval_add, eval_sub, eval_X, eval_C, eval_one]
   ))
 
 end tools_and_lemmas
@@ -171,7 +171,7 @@ lemma WW_tendsto_1 {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x y : �
     pBij (fun n _ ↦ N + y + n) inv (fun m ↦ m - N - y)
   have : 1 = ∏ n ∈ range (x - y), 1 := Eq.symm prod_const_one
   nth_rw 2 [←prod_const_one (s := range (x-y))]
-  apply tendsto_finset_prod
+  apply tendsto_finsetProd
   simp only [add_assoc]
   exact fun n _ ↦ W_terms_tendsto_1 qN1 _
 
@@ -181,7 +181,7 @@ lemma WW_tendsto_1' {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x y : �
   have := Tendsto.comp (WW_tendsto_1 aN1 qN1 y x) (tendsto_sub_atTop_nat (x+y))
   apply Filter.Tendsto.congr' _ this
   apply sets_of_superset (x := Set.Ici (x+y))
-  · simp only [Filter.mem_sets, mem_atTop_sets, ge_iff_le, Set.mem_Ici]; use (x+y); tauto
+  · simp only [Filter.mem_sets, mem_atTop_sets, Set.mem_Ici]; use (x+y); tauto
   intro i ni; rw[Set.mem_Ici] at ni
   dsimp
   rw[(by omega : i - (x+y) + y = i - x), (by omega : i - (x+y) + x = i - y)]
@@ -410,7 +410,7 @@ lemma eq_1_eval (a q x : ℂ) (N : ℕ) (q0 : q ≠ 0) (a0 : a ≠ 0)
     = ∏ n ∈ range (N+1), eval x (Up a q n) := by
   have eq := eq_1 a q N q0 a0 qN1 h₁
   apply_fun fun X ↦ eval x X at eq
-  simp only [eval_finset_sum, eval_prod, eval_mul, eval_C] at eq
+  simp only [eval_finsetSum, eval_prod, eval_mul, eval_C] at eq
   exact eq
 
 end EQ1
@@ -654,13 +654,11 @@ lemma SS_Bounded_Eventually {a q x : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1
               _ ≤ 1 + 1 := by gcongr; exact this _
               _ = 2 := one_add_one_eq_two
           · rw[←one_mul (1-‖a‖)⁻¹]; gcongr
-            · linarith
             calc
               _ ≤ 1 - ‖a‖*‖q‖^(N-n-1+i) := by nth_rw 1 [←mul_one ‖a‖]; gcongr; exact this _
               _ = 1 - ‖a*q^(N-n-1+i)‖ := by rw[norm_mul, norm_pow]
               _ ≤ _ := by rw[←norm_one (α := ℂ)]; apply norm_sub_norm_le
           · rw[←one_mul (1-‖q‖)⁻¹]; gcongr
-            · linarith
             calc
               _ ≤ 1 - ‖q‖*‖q‖^(N+i) := by nth_rw 1 [←mul_one ‖q‖]; gcongr; exact this _
               _ = 1 - ‖q*q^(N+i)‖ := by rw[norm_mul, norm_pow]
@@ -685,7 +683,7 @@ lemma SS_Tendsto_S {a q x : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : �
   · repeat rw[mul_one] at H
     apply Filter.Tendsto.congr' _ H
     apply sets_of_superset (x := Set.Ici (n+1))
-    · simp only [Filter.mem_sets, mem_atTop_sets, ge_iff_le, Set.mem_Ici]; use (n+1); tauto
+    · simp only [Filter.mem_sets, mem_atTop_sets, Set.mem_Ici]; use (n+1); tauto
     intro i ni; rw[Set.mem_Ici] at ni
     dsimp; rw[if_neg (Nat.not_le_of_lt ni)]
     ring

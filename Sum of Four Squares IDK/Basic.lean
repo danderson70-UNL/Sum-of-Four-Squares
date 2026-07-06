@@ -1,4 +1,4 @@
-import «Sum of Four Squares IDK».Common
+import Mathlib
 
 def hello := "world"
 
