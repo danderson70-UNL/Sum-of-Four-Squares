@@ -1,26 +1,25 @@
 import Mathlib
 
 noncomputable section
-open Set Finset Topology FormalMultilinearSeries
+open Set Finset Topology FormalMultilinearSeries Complex
 
 -- "p" is a FormalMultilinearSeries
-def coeffs_to_p (f : ℕ → ℂ) : FormalMultilinearSeries ℂ ℂ ℂ :=
+def coeffs_to_p (f : ℕ → ℕ) : FormalMultilinearSeries ℂ ℂ ℂ :=
   fun n ↦ ContinuousMultilinearMap.mkPiRing ℂ (Fin n) (f n)
-def term (f : ℕ → ℂ) (q : ℂ) := fun n ↦ f n * q^n
-def convDisk1 (f : ℕ → ℂ) := ∀ q ∈ Metric.ball 0 1, Summable (term f q)
-def evalPS {f : ℕ → ℂ} (_ : convDisk1 f) := fun q ↦ ∑' n, term f q n
+def term (f : ℕ → ℕ) (q : ℂ) := fun n ↦ f n * q^n
+def convDisk1 (f : ℕ → ℕ) := ∀ q ∈ Metric.ball 0 1, Summable (term f q)
+def evalPS (f : ℕ → ℕ) := fun q ↦ ∑' n, term f q n
 
 lemma ball_eq_eball (a : ℂ) (r : ℝ) : Metric.ball a r = Metric.eball a r.toNNReal := by
     ext x
-    rw[Metric.mem_ball, Complex.dist_eq, Metric.mem_eball]
+    rw[Metric.mem_ball, dist_eq, Metric.mem_eball]
     rw[←Real.toNNReal_lt_toNNReal_iff_of_nonneg (norm_nonneg (x-a))]
     convert ENNReal.coe_lt_coe.symm
     rw[edist_eq_enorm_sub, norm_toNNReal]
     exact enorm_eq_nnnorm (x-a)
 
-lemma PSAt_of_pos_convDisk1 {f : ℕ → ℂ} (fconv : convDisk1 f)
-    (fpos : ∀ n : ℕ, ‖f n‖ = f n) :
-    HasFPowerSeriesAt (evalPS fconv) (coeffs_to_p f) 0 := by
+lemma PS_at_of_pos_convDisk1 {f : ℕ → ℕ} (fconv : convDisk1 f) :
+    HasFPowerSeriesAt (evalPS f) (coeffs_to_p f) 0 := by
   use (1 : NNReal)
   refine ⟨?_, one_pos, ?_⟩
   · rw[ENNReal.coe_one]
@@ -31,13 +30,13 @@ lemma PSAt_of_pos_convDisk1 {f : ℕ → ℂ} (fconv : convDisk1 f)
       use r; refine ⟨?_, rfl⟩
       have := le_top (a := (1:ENNReal))
       grind_order
-    rw[(by rw[Complex.nnnorm_real, NNReal.nnnorm_eq] : s = ‖(s:ℂ)‖₊)] at rh
+    rw[(by rw[nnnorm_real, NNReal.nnnorm_eq] : s = ‖(s:ℂ)‖₊)] at rh
     have := not_summable_norm_of_radius_lt_nnnorm (coeffs_to_p f) rh
-    simp only [coeffs_to_p, ContinuousMultilinearMap.norm_mkPiRing, Complex.norm_real,
+    simp only [coeffs_to_p, ContinuousMultilinearMap.norm_mkPiRing, norm_real,
       Real.norm_eq_abs, NNReal.abs_eq] at this
     contrapose! this; clear this
     apply (RCLike.summable_ofReal ℂ).mp
-    simp only [Complex.coe_algebraMap, Complex.ofReal_mul, fpos, Complex.ofReal_pow]
+    simp only [coe_algebraMap, ofReal_mul, norm_natCast, ofReal_pow]
     refine fconv s ?_
     apply mem_ball_zero_iff.mpr
     rw[Complex.norm_of_nonneg NNReal.zero_le_coe]
@@ -49,15 +48,21 @@ lemma PSAt_of_pos_convDisk1 {f : ℕ → ℂ} (fconv : convDisk1 f)
       Fintype.card_fin, smul_eq_mul, evalPS, zero_add, mul_comm (q^_)]
     apply (fconv q qB).hasSum
 
-
-example (f g : ℕ → ℂ) (fconv : convDisk1 f) (gconv : convDisk1 g)
-    (fpos : ∀ n : ℕ, ‖f n‖ = f n) (gpos : ∀ n : ℕ, ‖g n‖ = g n) : f = g := by
-  have : (evalPS fconv) = (evalPS gconv) := by sorry
-  have := HasFPowerSeriesAt.eq_formalMultilinearSeries
-      (PSAt_of_pos_convDisk1 fconv fpos) (this ▸ PSAt_of_pos_convDisk1 gconv gpos)
+example (f g : ℕ → ℕ) (H : ∀ q ∈ Metric.ball (0 : ℂ) 1, ∃ limit : ℂ,
+    (HasSum (term f q) limit ∧ HasSum (term g q) limit)) : f = g := by
+  have PS_at_f := PS_at_of_pos_convDisk1 (fun q qB ↦ (H q qB).choose_spec.1.summable)
+  have PS_at_g : HasFPowerSeriesAt (evalPS f) (coeffs_to_p g) 0 := by
+    apply HasFPowerSeriesAt.congr
+      (PS_at_of_pos_convDisk1 (fun q qB ↦ (H q qB).choose_spec.2.summable))
+    apply Set.EqOn.eventuallyEq_of_mem _ (Metric.ball_mem_nhds 0 (one_pos))
+    intro q qB
+    obtain ⟨l, f_sum, g_sum⟩ := H q qB
+    rw[evalPS, evalPS, f_sum.tsum_eq, g_sum.tsum_eq]
+  have := HasFPowerSeriesAt.eq_formalMultilinearSeries PS_at_f PS_at_g
   ext n
-  have : coeffs_to_p f n = coeffs_to_p g n := by sorry
-  apply ContinuousMultilinearMap.mkPiRing_eq_iff.mp this
+  apply_mod_cast ContinuousMultilinearMap.mkPiRing_eq_iff.mp (congrFun this n)
+
+
 
   -- have := AnalyticOnNhd.eqOn_of_preconnected_of_eventuallyEq
   --     (hxxx fconv fpos) (hxxx gconv gpos)
