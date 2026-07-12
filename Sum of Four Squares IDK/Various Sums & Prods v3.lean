@@ -811,7 +811,7 @@ end EQ2_lemmas
 section EQ2
 open Finset Filter Topology
 
-theorem eq_2 (a q x : ℂ) (q0 : q ≠ 0) (a0 : a ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
+theorem eq_2 {a q x : ℂ} (a0 : a ≠ 0) (q0 : q ≠ 0) (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1)
     (h₁ : ∀ n : ℕ, 1-a*q^n ≠ 0) (h₂ : ∀ n : ℕ, 1-q^n*x+q^(2*n) ≠ 0) :
     ∃ limitP : ℂ, ∃ limitS : ℂ, Tendsto (fun N ↦ ∏ n ∈ range N, P a q x n) atTop (𝓝 limitP)
     ∧ HasSum (S a q x) limitS ∧ (2-x)⁻¹ * limitP = (2-x)⁻¹ + limitS := by

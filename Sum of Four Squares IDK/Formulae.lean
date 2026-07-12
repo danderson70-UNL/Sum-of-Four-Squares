@@ -1,9 +1,8 @@
 import Mathlib
 import «Sum of Four Squares IDK».«Various Sums & Prods v3»
-
 set_option linter.style.whitespace false
 
-noncomputable section prod_props
+section prod_props
 open Finset
 
 -- Some general theorems
@@ -82,20 +81,7 @@ lemma L_3 {q l : ℂ} (qN1 : ‖q‖ < 1) (h : HasProd (fun n ↦ (1-q^(2*n+1))^
 end prod_props
 
 
-noncomputable section d_lemmas
-open Finset
-
-variable (r m n : ℕ)
-def d := #{x ∈ range (n+1) | (x ∣ n) ∧ (x % m = r)}
-#eval {x ∈ range (9+1) | (x ∣ 9) ∧ (x % 4 = 1)}
-#eval d 1 4 9
-def U x := {q : ℂ | q ≠ 0 ∧ ‖q‖ < 1 ∧ ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0}
-
-end d_lemmas
-
-
-
-noncomputable section
+section JacobiTripleProduct_lemmas
 open Topology
 
 lemma L_2 [Field α] (z : ℤ) {n : ℕ} (n0 : n ≠ 0) : (-1:α)^(z^n) = (-1:α)^z := by
@@ -104,35 +90,23 @@ lemma L_2 [Field α] (z : ℤ) {n : ℕ} (n0 : n ≠ 0) : (-1:α)^(z^n) = (-1:α
   · have h := by exact Int.not_even_iff_odd.mp h
     rw[Odd.neg_one_zpow h, Odd.neg_one_zpow h.pow]
 
-example (f g : ℂ → ℂ) : f = g := by
-  have := AnalyticOnNhd.eqOn_of_preconnected_of_eventuallyEq
-      (sorry : AnalyticOnNhd ℂ f Set.univ) (sorry : AnalyticOnNhd ℂ g Set.univ)
-      (isPreconnected_univ) (Set.mem_univ 0 : 0 ∈ Set.univ) (sorry) (z₀ := 0)
-  exact (Set.eqOn_univ f g).mp this
-
-
-
--- lemma
-#check geom_series_eq_inverse
-lemma h (q : ℂ) (k : ‖q‖ < 1) : HasSum (fun n ↦ q^n) (1-q)⁻¹ := by
-  exact hasSum_geometric_of_norm_lt_one k
-
-
 
 -- Results about the Jacobi Triple Product
-def statementOf_jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) : Prop :=
+theorem jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) :
     ∃ limit : ℂ, HasProd (fun n ↦ (1+a*q^(2*n+1)) * (1+a⁻¹*q^(2*n+1)) * (1-q^(2*n+2))) limit
-    ∧ HasSum (fun z : ℤ ↦ a^z * q^(z^2)) limit
--- axiom jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) :
---   statementOf_jacobiTripleProduct a0 qN1
--- variable (a q : ℂ) (a0 : a ≠ 0) (qN1 : ‖q‖ < 1)
-variable (jtp : Π {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1), statementOf_jacobiTripleProduct a0 qN1)
-include jtp
+    ∧ HasSum (fun z : ℤ ↦ a^z * q^(z^2)) limit := by sorry
+
+-- def statementOf_jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) : Prop :=
+--     ∃ limit : ℂ, HasProd (fun n ↦ (1+a*q^(2*n+1)) * (1+a⁻¹*q^(2*n+1)) * (1-q^(2*n+2))) limit
+--     ∧ HasSum (fun z : ℤ ↦ a^z * q^(z^2)) limit
+-- variable (jtp : Π {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1), statementOf_jacobiTripleProduct a0 qN1)
+-- include jtp
 
 lemma JTP_1 {q : ℂ} (qN1 : ‖q‖ < 1) :
     ∃ limit : ℂ, HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit
     ∧ HasProd (fun n ↦ (1 - q^(n+1)) * (1 + q^(n+1))⁻¹) limit := by
-  obtain ⟨l, prod, sum⟩ := jtp (by grobner : (-1:ℂ) ≠ 0) qN1
+  -- obtain ⟨l, prod, sum⟩ := jtp (by grobner : (-1:ℂ) ≠ 0) qN1
+  obtain ⟨l, prod, sum⟩ := jacobiTripleProduct (by grobner : (-1:ℂ) ≠ 0) qN1
   use l; refine ⟨sum, ?_⟩; clear sum
   simp only [neg_one_mul, (by ring : (-1:ℂ)⁻¹ = -1), ←sub_eq_add_neg, ←pow_two] at prod
   apply L_3 qN1 prod
@@ -141,7 +115,8 @@ lemma JTP_2 {q : ℂ} (qN1 : ‖q‖ < 1) :
     ∃ limit : ℂ, HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit
     ∧ HasProd (fun n ↦ ((1-q^(2*n+1)) * (1-q^(2*n+2)))
       * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹)) limit := by
-  obtain ⟨l, sum, prod⟩ := JTP_1 jtp qN1
+  -- obtain ⟨l, sum, prod⟩ := JTP_1 jtp qN1
+  obtain ⟨l, sum, prod⟩ := JTP_1 qN1
   use l; refine ⟨sum, ?_⟩
   have : (fun n ↦ (1-q^(2*n+1)) * (1-q^(2*n+2)) * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹))
       = (fun n ↦ (1-q^(2*n+1)) * (1+q^(2*n+1))⁻¹ * ((1-q^(2*n+2)) * (1+q^(2*n+2))⁻¹)) := by
@@ -157,7 +132,8 @@ lemma JTP_3 {q : ℂ} (qN1 : ‖q‖ < 1) :
   have : ‖-q^2‖ < 1 := by
     rw[Complex.norm_neg', norm_pow, ←one_pow 2]
     exact zpow_lt_zpow_left₀ two_pos (norm_nonneg q) qN1
-  obtain ⟨l, sum, prod⟩ := JTP_2 jtp this
+  -- obtain ⟨l, sum, prod⟩ := JTP_2 jtp this
+  obtain ⟨l, sum, prod⟩ := JTP_2 this
   use l; constructor
   · have : (fun n ↦
           (1-(-q^2)^(2*n+1)) * (1-(-q^2)^(2*n+2)) * ((1+(-q^2)^(2*n+2))⁻¹ * (1+(-q^2)^(2*n+1))⁻¹))
@@ -179,58 +155,105 @@ lemma JTP_3 {q : ℂ} (qN1 : ‖q‖ < 1) :
       rfl
     simpa [this] using sum
 
+end JacobiTripleProduct_lemmas
 
-lemma eq_2_aq {q x : ℂ} (qU : q ∈ Metric.ball 0 1) :
-    (2-x)⁻¹ * ∏' n : ℕ, (1 + q^(n+1)*x + q^(2*n+2))
-      * (1 - q^(n+1)*x + q^(2*n+2))⁻¹ * ((1 - q^(n+1))^2 * (1 + q^(n+1))⁻¹^2)
-    = (2-x)⁻¹ + 2 * ∑' n : ℕ, (-1)^(n+1) * q^(n+1) * (1 - q^n*x + q^(2*n)) := by
-  sorry
+noncomputable section d_lemmas
+open Finset
 
--- lemma eqC_1 {L R : ℕ → ℂ} {U : Set ℂ} (limU : 0 ∈ closure U) (U0 : 0 ∉ U)
---     (H : ∀ q ∈ U, ∃ limit, HasSum (fun n ↦ (L n) * q ^ n) limit
---     ∧ HasSum (fun n ↦ (R n) * q ^ n) limit) : ∀ n : ℕ, L n = R n := by
---   let M (n : ℕ) := L n - R n
---   intro _; apply Nat.strong_induction_on (p := fun n ↦ L n = R n)
---   intro N hN
---   by_contra!
---   have MN0 : M N ≠ 0 := sub_ne_zero_of_ne this
---   have HS0 : ∀ q ∈ U, HasSum (fun n ↦ M (N+n) / M N * q^n) 0 := by
---     intro q qU; obtain ⟨limit, Ll, Rl⟩ := H q qU
---     have eq := (sub_self limit) ▸ HasSum.sub Ll Rl
---     have : (fun n ↦ (L n) * q^n - (R n) * q^n) = (fun n ↦ q^n • (M n)) := by
---       ext; simp only [M, smul_eq_mul]; ring
---     rw[this] at eq
---     have : ∀ n < N, M n = 0 := by intro n nN; simp only [hN n nN, sub_self, M]
---     obtain ⟨t, ht, A⟩ := HasSum.exists_hasSum_smul_of_apply_eq_zero eq this
---     have : q^N ≠ 0 := by apply pow_ne_zero; rintro rfl; exact U0 qU
---     have : t = 0 := by simpa [smul_eq_mul, this] using ht
---     rw[this] at A
---     have : (fun n ↦ q^n • M (n+N)) = (fun n ↦ M N * (M (N + n) / M N * q ^ n)) := by
---       ext n; rw[smul_eq_mul, add_comm]; field_simp
---     rw[this] at A
---     apply HasSum.mul_left (M N)⁻¹ at A
---     simpa [←mul_assoc, inv_mul_cancel₀ MN0] using A
---   have HSlimit : TendsTo
+variable (r m n : ℕ)
+def d := #{x ∈ range (n+1) | (x ∣ n) ∧ (x % m = r)}
+#eval {x ∈ range (9+1) | (x ∣ 9) ∧ (x % 4 = 1)}
+#eval d 1 4 9
+def U x := {q : ℂ | q ≠ 0 ∧ ‖q‖ < 1 ∧ ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0}
+
+-- lemma
+#check geom_series_eq_inverse
+lemma h (q : ℂ) (k : ‖q‖ < 1) : HasSum (fun n ↦ q^n) (1-q)⁻¹ := by
+  exact hasSum_geometric_of_norm_lt_one k
+
+end d_lemmas
+
+section
+open Filter Finset Topology
+
+lemma h₁_qN1 {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ n : ℕ, 1 + q^n ≠ 0 := by
+    intro n eq
+    apply eq_neg_of_add_eq_zero_left at eq
+    by_cases n0 : n = 0
+    · rw[n0] at eq
+      grobner
+    have := pow_lt_pow_left₀ qN1 (norm_nonneg q) n0
+    rw[←norm_pow q, ←norm_neg, ←eq, norm_one, one_pow] at this
+    linarith
+
+theorem eq_2aq {q x : ℂ} (qN1 : ‖q‖ < 1) (h₂ : ∀ n : ℕ, 1-q^n*x+q^(2*n) ≠ 0) :
+    ∃ limitP : ℂ, ∃ limitS : ℂ,
+    Tendsto (fun N ↦ ∏ n ∈ range N,
+      ((1+q^(n+1)*x+q^(2*n+2)) / (1-q^(n+1)*x+q^(2*n+2))) * (((1-q^(n+1))^2) / (1+q^(n+1))^2))
+      atTop (𝓝 limitP)
+    ∧ HasSum (fun n ↦ (-q)^(n+1) / (1-q^(n+1)*x+q^(2*n+2))) limitS
+    ∧ (2-x)⁻¹ * limitP = (2-x)⁻¹ + 2 * limitS := by
+  by_cases q0 : q = 0
+  · use 1, 0
+    simp [q0]
+  have h₁ : ∀ n : ℕ, 1 - (-q)*q^n ≠ 0 := by
+    simp only[neg_mul, sub_neg_eq_add, ←pow_succ']
+    exact fun n ↦ h₁_qN1 qN1 n.succ
+  obtain ⟨lP, lS, prod, sum, eq⟩ :=
+    eq_2 (by grobner : -q ≠ 0) q0 (by rwa[←norm_neg] at qN1) qN1 h₁ h₂
+  use lP, lS/2
+  refine ⟨?_, ?_, ?_⟩
+  · convert prod
+    rw[P]
+    field
+  · suffices : HasSum (fun n ↦ (-q) ^ (n + 1) / (1 - q ^ (n + 1) * x + q ^ (2 * n + 2)) * 2) (lS)
+    · have := (HasSum.div_const this 2)
+      simpa [mul_div_cancel₀]
+    convert sum with n
+    have : W ((-q)⁻¹*q) q (n+1) * (1+q^(n+1)) * (W (-q) q (n+1))⁻¹ = 2 := by
+      simp only [W, inv_neg, neg_mul, inv_mul_cancel₀ q0, sub_neg_eq_add, ←pow_succ', one_mul]
+      rw[←prod_erase_mul _ _ (by simp : 0 ∈ range (n+1))]
+      rw[←prod_erase_mul _ _ (by simp : n ∈ range (n+1))]
+      have : (∏ x ∈ (range (n + 1)).erase 0, (1 + q ^ x))
+          = (∏ x ∈ (range (n + 1)).erase n, (1 + q ^ (x + 1))) := by
+        pBij (fun n _ ↦ n - 1) inv (fun m ↦ m + 1)
+      rw[this]
+      simp only [neg_mul, sub_neg_eq_add, ←pow_succ'] at h₁
+      have : (∏ x ∈ (range (n + 1)).erase n, (1 + q ^ (x + 1))) ≠ 0 := by
+        rw[prod_ne_zero_iff]; rintro m -; exact h₁ m
+      have := h₁ n
+      field
+    rw[S, mul_assoc ((-q)^(n+1)), mul_assoc ((-q)^(n+1)), this]
+    ring
+  · rw[eq]; field
+
+lemma eq_C' {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ limitL : ℂ, ∃ limitR,
+    HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limitL
+    ∧ HasSum (fun n ↦ (-q)^(n+1) / (1+(-q)^(2*n+2))) limitR
+    ∧ limitL^2 = 1 + 4 * limitR:= by
+  have h₂ : ∀ n : ℕ, 1 - q^n*0 + q^(2*n) ≠ 0 := by
+    intro n; rw[mul_zero, sub_zero]
+    exact h₁_qN1 qN1 _
+  obtain ⟨lP, lS, prod, sum, eq⟩ := eq_2aq qN1 h₂
+  obtain ⟨lJ, Jsum, Jprod⟩ := JTP_1 qN1
+  simp only [mul_zero, add_zero, sub_zero, fun n ↦ div_self (h₁_qN1 qN1 (2*n+2)),
+    one_mul, div_eq_mul_inv, ←inv_pow, ←mul_pow] at prod
+  simp only [mul_zero, sub_zero] at sum
+  use lJ, lS
+  refine ⟨Jsum, ?_, ?_⟩
+  · simp only [fun n ↦ (by omega : 2*n+2 = 2*(n+1)), fun n ↦ Even.neg_pow (even_two_mul (n+1)) q]
+    simp only [fun n ↦ (by omega : 2*(n+1) = 2*n+2)]
+    exact sum
+  · have : lJ^2 = lP := by
+      have := HasProd.tendsto_prod_nat (HasProd.pow Jprod 2)
+      apply tendsto_nhds_unique this prod
+    rw[this]
+    grobner
 
 
---   simp at this
---   -- grind
---   sorry
 
-lemma eq_C (N : ℕ) (N1 : N ≥ 1) : Nat.card {p : ℤ × ℤ // p.1^2 + p.2^2 = N}
-    = 4 * (d 1 4 N - d 3 4 N) := by
-  have N0 : N ≠ 0 := Nat.ne_zero_of_lt N1
-  let L := fun (n:ℕ) ↦ Nat.card {p : ℤ × ℤ // p.1^2 + p.2^2 = n}
-  let R := fun n ↦ if n = 0 then 1 else 4 * (d 1 4 N - d 3 4 N)
-  have hL : absConvDisk1 (fun n ↦ L n) := by sorry
-  have hR : absConvDisk1 (fun n ↦ R n) := by sorry
-  have : ∀ q ∈ Metric.ball 0 1, (evalPowerSeries hL q) = (evalPowerSeries hR q) := by
-    -- Apply eq_2_aq somewhere in here
-    sorry
-  apply powSeriesUniqueRadius1 hL hR at this
-  apply_fun (fun X ↦ X N) at this
-  dsimp at this
-  simp only [L, R, if_neg N0] at this
-  exact_mod_cast this
+
+
+
 
 end
