@@ -48,7 +48,7 @@ lemma PS_at_of_pos_convDisk1 {f : ℕ → ℕ} (fconv : convDisk1 f) :
       Fintype.card_fin, smul_eq_mul, evalPS, zero_add, mul_comm (q^_)]
     apply (fconv q qB).hasSum
 
-example (f g : ℕ → ℕ) (H : ∀ q ∈ Metric.ball (0 : ℂ) 1, ∃ limit : ℂ,
+theorem eq_PS_on_disk (f g : ℕ → ℕ) (H : ∀ q ∈ Metric.ball (0 : ℂ) 1, ∃ limit : ℂ,
     (HasSum (term f q) limit ∧ HasSum (term g q) limit)) : f = g := by
   have PS_at_f := PS_at_of_pos_convDisk1 (fun q qB ↦ (H q qB).choose_spec.1.summable)
   have PS_at_g : HasFPowerSeriesAt (evalPS f) (coeffs_to_p g) 0 := by

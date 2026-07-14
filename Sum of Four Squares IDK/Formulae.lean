@@ -1,5 +1,6 @@
 import Mathlib
 import «Sum of Four Squares IDK».«Various Sums & Prods v3»
+import «Sum of Four Squares IDK».«Power & Multilinear Series»
 set_option linter.style.whitespace false
 
 section prod_props
@@ -102,21 +103,22 @@ theorem jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) :
 -- variable (jtp : Π {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1), statementOf_jacobiTripleProduct a0 qN1)
 -- include jtp
 
-lemma JTP_1 {q : ℂ} (qN1 : ‖q‖ < 1) :
+lemma JTP_1 {q : ℂ} (qB : q ∈ Metric.ball 0 1) :
     ∃ limit : ℂ, HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit
     ∧ HasProd (fun n ↦ (1 - q^(n+1)) * (1 + q^(n+1))⁻¹) limit := by
   -- obtain ⟨l, prod, sum⟩ := jtp (by grobner : (-1:ℂ) ≠ 0) qN1
+  have qN1 := mem_ball_zero_iff.mp qB
   obtain ⟨l, prod, sum⟩ := jacobiTripleProduct (by grobner : (-1:ℂ) ≠ 0) qN1
   use l; refine ⟨sum, ?_⟩; clear sum
   simp only [neg_one_mul, (by ring : (-1:ℂ)⁻¹ = -1), ←sub_eq_add_neg, ←pow_two] at prod
   apply L_3 qN1 prod
 
-lemma JTP_2 {q : ℂ} (qN1 : ‖q‖ < 1) :
+lemma JTP_2 {q : ℂ} (qB : q ∈ Metric.ball 0 1) :
     ∃ limit : ℂ, HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit
     ∧ HasProd (fun n ↦ ((1-q^(2*n+1)) * (1-q^(2*n+2)))
       * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹)) limit := by
   -- obtain ⟨l, sum, prod⟩ := JTP_1 jtp qN1
-  obtain ⟨l, sum, prod⟩ := JTP_1 qN1
+  obtain ⟨l, sum, prod⟩ := JTP_1 qB
   use l; refine ⟨sum, ?_⟩
   have : (fun n ↦ (1-q^(2*n+1)) * (1-q^(2*n+2)) * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹))
       = (fun n ↦ (1-q^(2*n+1)) * (1+q^(2*n+1))⁻¹ * ((1-q^(2*n+2)) * (1+q^(2*n+2))⁻¹)) := by
@@ -124,12 +126,14 @@ lemma JTP_2 {q : ℂ} (qN1 : ‖q‖ < 1) :
   rw[this]
   apply HasProd.in_pairs prod
 
-lemma JTP_3 {q : ℂ} (qN1 : ‖q‖ < 1) :
+lemma JTP_3 {q : ℂ} (qB : q ∈ Metric.ball 0 1) :
     ∃ limit : ℂ, HasProd (fun n ↦
       ((1+q^(4*n+2)) * (1-q^(2*n+2))) * ((1+q^(4*n+4))⁻¹ * (1+q^(2*n+1))⁻¹)
       * ((1+q^(2*n+2)) * (1-q^(2*n+1))⁻¹)) limit
     ∧ HasSum (fun z : ℤ ↦ q^(2*z^2)) limit := by
-  have : ‖-q^2‖ < 1 := by
+  have qN1 := mem_ball_zero_iff.mp qB
+  have : -q^2 ∈ Metric.ball 0 1 := by
+    rw[mem_ball_zero_iff]
     rw[Complex.norm_neg', norm_pow, ←one_pow 2]
     exact zpow_lt_zpow_left₀ two_pos (norm_nonneg q) qN1
   -- obtain ⟨l, sum, prod⟩ := JTP_2 jtp this
@@ -157,48 +161,121 @@ lemma JTP_3 {q : ℂ} (qN1 : ‖q‖ < 1) :
 
 end JacobiTripleProduct_lemmas
 
-noncomputable section d_lemmas
+
+section d_lemmas
 open Finset
 
-variable (r m n : ℕ)
-def d := #{x ∈ range (n+1) | (x ∣ n) ∧ (x % m = r)}
-#eval {x ∈ range (9+1) | (x ∣ 9) ∧ (x % 4 = 1)}
-#eval d 1 4 9
-def U x := {q : ℂ | q ≠ 0 ∧ ‖q‖ < 1 ∧ ∀ n : ℕ, 1 - q^n*x + q^(2*n) ≠ 0}
+def nrange (n : ℕ) := Finset.range (n+1)
+#eval nrange 4
 
--- lemma
-#check geom_series_eq_inverse
-lemma h (q : ℂ) (k : ‖q‖ < 1) : HasSum (fun n ↦ q^n) (1-q)⁻¹ := by
-  exact hasSum_geometric_of_norm_lt_one k
+variable (r m n : ℕ)
+def d := #{x ∈ nrange n | (x ∣ n) ∧ (x % m = r)}
+#eval {x ∈ nrange 15 | (x ∣ 15) ∧ (x % 4 = 1)}
+#eval {p ∈ (nrange 5).product (nrange 5) | p.1 + p.2 = 6}
+#eval d 1 4 15
+
+--Nat.lt_add_of_pos_right
+theorem Nat.lt_add_of_nonzero_right (a : ℕ) {b : ℕ} (b0 : b ≠ 0) : a < a + b := by
+  apply Nat.lt_add_of_pos_right (zero_lt_of_ne_zero b0)
+theorem Nat.le_mul_of_nonzero_left (b : ℕ) {a : ℕ} (a0 : a ≠ 0)  : b ≤ a * b := by
+  apply Nat.le_mul_of_pos_left _ (zero_lt_of_ne_zero a0)
+theorem Nat.le_mul_of_nonzero_right (a : ℕ) {b : ℕ} (b0 : b ≠ 0) : a ≤ a * b := by
+  apply Nat.le_mul_of_pos_right _ (zero_lt_of_ne_zero b0)
+
+lemma d_geom_sum {q : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : r ≠ 0) (m0 : m ≠ 0) :
+    ∃ limit : ℂ, HasSum (fun n ↦ q^(r*n) / (1 - q^(m*n))) limit
+    ∧ HasSum (fun n ↦ d r m (n+1) * q^(n+1)) limit := by
+  obtain ⟨l, h⟩ : Summable (fun n ↦ q^(r*n) / (1 - q^(m*n))) := by sorry
+  refine ⟨l, h, ?_⟩
+  suffices : HasSum (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) l
+  · apply HasSum.hasSum_of_sum_eq _ this
+    intro u; use u.image (fun p ↦ (p.1+1)*(m*p.2+r))
+    intro v' vv'
+    let u' := v'.biUnion (fun n ↦ {p ∈ (nrange n).product (nrange n) | (p.1+1)*(m*p.2+r) = n})
+    use u'
+    constructor
+    · intro p pu
+      rw[mem_biUnion]; use (p.1+1)*(m*p.2+r)
+      constructor
+      · exact vv' (Finset.mem_image.mpr ⟨p, pu, rfl⟩)
+      · simp only [product_eq_sprod, mem_filter, mem_product, and_true]
+        rw[nrange, mem_range, mem_range]
+        have : (m * p.2 + r) ≠ 0 := by omega
+        constructor
+        · calc
+          _ < p.1 + 1 := lt_add_one p.1
+          _ ≤ (p.1 + 1) * (m*p.2 + r) := Nat.le_mul_of_nonzero_right (p.1 + 1) this
+          _ < _ := lt_add_one _
+        · calc
+          _ ≤ m*p.2 := Nat.le_mul_of_nonzero_left _ m0
+          _ < m*p.2 + r := by refine Nat.lt_add_of_nonzero_right _ r0
+          _ ≤ _ := by lia
+    · rw[Finset.sum_biUnion]
+      · apply Finset.sum_congr rfl
+        intro n nv'
+        calc
+          _ = ∑ p ∈ (nrange n).product (nrange n) with (p.1+1)*(m*p.2+r) = n, q^(n+1) := by
+            sorry
+          _ = #{p ∈ (nrange n).product (nrange n) | (p.1+1)*(m*p.2+r) = n} * q^(n+1) := by
+            sorry
+          _ = _ := by
+            apply congr_arg (fun (X:ℕ) ↦ X * q^(n+1))
+            sorry
+      · sorry
+  simp [mul_add, pow_add]
+  -- #check HasSum.prod_mk
+  sorry
+
+example (a b : ℕ) (h : a ≠ 0) : b ≤ a*b := by apply?
 
 end d_lemmas
+
+section sum_of_squares_formulae
+open Finset
+
+def zrange (n : ℕ) := (range (2*n+1)).image (fun (x:ℕ) ↦ (x:ℤ) - n)
+#eval zrange 4
+
+def sum_sq_sq (n : ℕ) := #{(⟨x,_⟩, ⟨y,_⟩) : (zrange n) × (zrange n) | x^2 + y^2 = n}
+def sum_sq_2sq (n : ℕ) := #{(⟨x,_⟩, ⟨y,_⟩) : (zrange n) × (zrange n) | x^2 + 2 * y^2 = n}
+def sum_sq_3sq (n : ℕ) := #{(⟨x,_⟩, ⟨y,_⟩) : (zrange n) × (zrange n) | x^2 + 3 * y^2 = n}
+def sum_sq_sq_sq_sq (n : ℕ) := #{(⟨w,_⟩, ⟨x,_⟩, ⟨y,_⟩, ⟨z,_⟩) : (zrange n) × (zrange n)
+    × (zrange n) × (zrange n) | w^2 + x^2 + y^2 + z^2 = n}
+#eval sum_sq_sq_sq_sq 5
+
+lemma L_4 (q : ℂ) : ∀ limit : ℂ, HasSum (fun z : ℤ ↦ q^(z^2)) limit
+    → HasSum (term sum_sq_sq q) (limit^2) := by sorry
+
+end sum_of_squares_formulae
 
 section
 open Filter Finset Topology
 
-lemma h₁_qN1 {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ n : ℕ, 1 + q^n ≠ 0 := by
-    intro n eq
-    apply eq_neg_of_add_eq_zero_left at eq
-    by_cases n0 : n = 0
-    · rw[n0] at eq
-      grobner
-    have := pow_lt_pow_left₀ qN1 (norm_nonneg q) n0
-    rw[←norm_pow q, ←norm_neg, ←eq, norm_one, one_pow] at this
-    linarith
+lemma h₁_qB {q : ℂ} (qB : q ∈ Metric.ball 0 1) : ∀ n : ℕ, 1 + q^n ≠ 0 := by
+  apply mem_ball_zero_iff.mp at qB
+  intro n eq
+  apply eq_neg_of_add_eq_zero_left at eq
+  by_cases n0 : n = 0
+  · rw[n0] at eq
+    grobner
+  have := pow_lt_pow_left₀ qB (norm_nonneg q) n0
+  rw[←norm_pow q, ←norm_neg, ←eq, norm_one, one_pow] at this
+  linarith
 
-theorem eq_2aq {q x : ℂ} (qN1 : ‖q‖ < 1) (h₂ : ∀ n : ℕ, 1-q^n*x+q^(2*n) ≠ 0) :
+theorem eq_2aq {q x : ℂ} (qB : q ∈ Metric.ball 0 1) (h₂ : ∀ n : ℕ, 1-q^n*x+q^(2*n) ≠ 0) :
     ∃ limitP : ℂ, ∃ limitS : ℂ,
     Tendsto (fun N ↦ ∏ n ∈ range N,
       ((1+q^(n+1)*x+q^(2*n+2)) / (1-q^(n+1)*x+q^(2*n+2))) * (((1-q^(n+1))^2) / (1+q^(n+1))^2))
       atTop (𝓝 limitP)
     ∧ HasSum (fun n ↦ (-q)^(n+1) / (1-q^(n+1)*x+q^(2*n+2))) limitS
     ∧ (2-x)⁻¹ * limitP = (2-x)⁻¹ + 2 * limitS := by
+  have qN1 := mem_ball_zero_iff.mp qB
   by_cases q0 : q = 0
   · use 1, 0
     simp [q0]
   have h₁ : ∀ n : ℕ, 1 - (-q)*q^n ≠ 0 := by
     simp only[neg_mul, sub_neg_eq_add, ←pow_succ']
-    exact fun n ↦ h₁_qN1 qN1 n.succ
+    exact fun n ↦ h₁_qB qB n.succ
   obtain ⟨lP, lS, prod, sum, eq⟩ :=
     eq_2 (by grobner : -q ≠ 0) q0 (by rwa[←norm_neg] at qN1) qN1 h₁ h₂
   use lP, lS/2
@@ -206,7 +283,7 @@ theorem eq_2aq {q x : ℂ} (qN1 : ‖q‖ < 1) (h₂ : ∀ n : ℕ, 1-q^n*x+q^(2
   · convert prod
     rw[P]
     field
-  · suffices : HasSum (fun n ↦ (-q) ^ (n + 1) / (1 - q ^ (n + 1) * x + q ^ (2 * n + 2)) * 2) (lS)
+  · suffices : HasSum (fun n ↦ (-q)^(n+1) / (1-q^(n+1)*x+q^(2*n+2))*2) (lS)
     · have := (HasSum.div_const this 2)
       simpa [mul_div_cancel₀]
     convert sum with n
@@ -227,16 +304,17 @@ theorem eq_2aq {q x : ℂ} (qN1 : ‖q‖ < 1) (h₂ : ∀ n : ℕ, 1-q^n*x+q^(2
     ring
   · rw[eq]; field
 
-lemma eq_C' {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ limitL : ℂ, ∃ limitR,
+lemma eq_C' {q : ℂ} (qB : q ∈ Metric.ball 0 1) : ∃ limitL : ℂ, ∃ limitR,
     HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limitL
     ∧ HasSum (fun n ↦ (-q)^(n+1) / (1+(-q)^(2*n+2))) limitR
-    ∧ limitL^2 = 1 + 4 * limitR:= by
+    ∧ limitL^2 = 1 + 4 * limitR := by
+  have qN1 := mem_ball_zero_iff.mp qB
   have h₂ : ∀ n : ℕ, 1 - q^n*0 + q^(2*n) ≠ 0 := by
     intro n; rw[mul_zero, sub_zero]
-    exact h₁_qN1 qN1 _
-  obtain ⟨lP, lS, prod, sum, eq⟩ := eq_2aq qN1 h₂
-  obtain ⟨lJ, Jsum, Jprod⟩ := JTP_1 qN1
-  simp only [mul_zero, add_zero, sub_zero, fun n ↦ div_self (h₁_qN1 qN1 (2*n+2)),
+    exact h₁_qB qB _
+  obtain ⟨lP, lS, prod, sum, eq⟩ := eq_2aq qB h₂
+  obtain ⟨lJ, Jsum, Jprod⟩ := JTP_1 qB
+  simp only [mul_zero, add_zero, sub_zero, fun n ↦ div_self (h₁_qB qB (2*n+2)),
     one_mul, div_eq_mul_inv, ←inv_pow, ←mul_pow] at prod
   simp only [mul_zero, sub_zero] at sum
   use lJ, lS
@@ -250,7 +328,22 @@ lemma eq_C' {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ limitL : ℂ, ∃ limitR,
     rw[this]
     grobner
 
-
+example : sum_sq_sq = fun n ↦ if n = 0 then 1 else 4*(d 1 4 n - d 3 4 n) := by
+  apply eq_PS_on_disk
+  intro q qB
+  have : -q ∈ Metric.ball 0 1 := by sorry
+  obtain ⟨lL, lR, sumL, sumR, eq⟩ := eq_C' this
+  use lL^2
+  constructor
+  · have : (fun (z:ℤ) ↦ (-1) ^ z * (-q) ^ z ^ 2) = (fun z ↦ q^(z^2)) := by
+      ext z
+      have : (-1:ℂ)^z * (-1)^(z^2) = 1 := by
+        simp[L_2 z two_ne_zero, ←zpow_add₀, ←two_mul, Even.neg_one_zpow]
+      rw[neg_eq_neg_one_mul q, mul_zpow, ←mul_assoc, this, one_mul]
+    rw[this] at sumL
+    exact L_4 q lL sumL
+  · have : (fun n ↦ (- -q)^(n+1) / (1 + (- -q)^(2*n+2)))
+        = (fun n ↦ q^(n+1) / (1-q^(4*n+4)) - q^)
 
 
 
