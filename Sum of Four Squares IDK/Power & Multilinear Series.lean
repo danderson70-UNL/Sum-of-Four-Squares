@@ -10,20 +10,11 @@ def term (f : ℕ → ℕ) (q : ℂ) := fun n ↦ f n * q^n
 def convDisk1 (f : ℕ → ℕ) := ∀ q ∈ Metric.ball 0 1, Summable (term f q)
 def evalPS (f : ℕ → ℕ) := fun q ↦ ∑' n, term f q n
 
-lemma ball_eq_eball (a : ℂ) (r : ℝ) : Metric.ball a r = Metric.eball a r.toNNReal := by
-    ext x
-    rw[Metric.mem_ball, dist_eq, Metric.mem_eball]
-    rw[←Real.toNNReal_lt_toNNReal_iff_of_nonneg (norm_nonneg (x-a))]
-    convert ENNReal.coe_lt_coe.symm
-    rw[edist_eq_enorm_sub, norm_toNNReal]
-    exact enorm_eq_nnnorm (x-a)
-
 lemma PS_at_of_pos_convDisk1 {f : ℕ → ℕ} (fconv : convDisk1 f) :
     HasFPowerSeriesAt (evalPS f) (coeffs_to_p f) 0 := by
-  use (1 : NNReal)
+  use 1
   refine ⟨?_, one_pos, ?_⟩
-  · rw[ENNReal.coe_one]
-    by_contra!
+  · by_contra!
     obtain ⟨r, rh, r1⟩ := exists_between this
     obtain ⟨s, rfl⟩ : ∃ s : NNReal, r = ↑s := by
       apply ENNReal.exists_ne_top.mp
@@ -43,7 +34,7 @@ lemma PS_at_of_pos_convDisk1 {f : ℕ → ℕ} (fconv : convDisk1 f) :
     simp only [ENNReal.coe_lt_one_iff, NNReal.coe_lt_one] at *
     assumption
   · intro q qB
-    rw[←Real.toNNReal_one, ←ball_eq_eball] at qB
+    rw[←ENNReal.ofReal_one, Metric.eball_ofReal] at qB
     simp only [coeffs_to_p, ContinuousMultilinearMap.mkPiRing_apply, prod_const, card_univ,
       Fintype.card_fin, smul_eq_mul, evalPS, zero_add, mul_comm (q^_)]
     apply (fconv q qB).hasSum

@@ -163,70 +163,129 @@ end JacobiTripleProduct_lemmas
 
 
 section d_lemmas
-open Finset
+open Finset Nat
 
 def nrange (n : ℕ) := Finset.range (n+1)
 #eval nrange 4
 
 variable (r m n : ℕ)
 def d := #{x ∈ nrange n | (x ∣ n) ∧ (x % m = r)}
+-- Examples
 #eval {x ∈ nrange 15 | (x ∣ 15) ∧ (x % 4 = 1)}
-#eval {p ∈ (nrange 5).product (nrange 5) | p.1 + p.2 = 6}
 #eval d 1 4 15
 
 --Nat.lt_add_of_pos_right
-theorem Nat.lt_add_of_nonzero_right (a : ℕ) {b : ℕ} (b0 : b ≠ 0) : a < a + b := by
-  apply Nat.lt_add_of_pos_right (zero_lt_of_ne_zero b0)
-theorem Nat.le_mul_of_nonzero_left (b : ℕ) {a : ℕ} (a0 : a ≠ 0)  : b ≤ a * b := by
-  apply Nat.le_mul_of_pos_left _ (zero_lt_of_ne_zero a0)
-theorem Nat.le_mul_of_nonzero_right (a : ℕ) {b : ℕ} (b0 : b ≠ 0) : a ≤ a * b := by
-  apply Nat.le_mul_of_pos_right _ (zero_lt_of_ne_zero b0)
+-- theorem Nat.lt_add_of_nonzero_right (a : ℕ) {b : ℕ} (b0 : b ≠ 0) : a < a + b :=
+--   Nat.lt_add_of_pos_right (b0.pos)
+-- theorem Nat.le_mul_of_nonzero_left (b : ℕ) {a : ℕ} (a0 : a ≠ 0)  : b ≤ a * b :=
+--   Nat.le_mul_of_pos_left _ (a0.pos)
+-- theorem Nat.le_mul_of_nonzero_right (a : ℕ) {b : ℕ} (b0 : b ≠ 0) : a ≤ a * b :=
+--   Nat.le_mul_of_pos_right _ (b0.pos)
 
-lemma d_geom_sum {q : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : r ≠ 0) (m0 : m ≠ 0) :
-    ∃ limit : ℂ, HasSum (fun n ↦ q^(r*n) / (1 - q^(m*n))) limit
-    ∧ HasSum (fun n ↦ d r m (n+1) * q^(n+1)) limit := by
-  obtain ⟨l, h⟩ : Summable (fun n ↦ q^(r*n) / (1 - q^(m*n))) := by sorry
-  refine ⟨l, h, ?_⟩
-  suffices : HasSum (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) l
-  · apply HasSum.hasSum_of_sum_eq _ this
-    intro u; use u.image (fun p ↦ (p.1+1)*(m*p.2+r))
-    intro v' vv'
-    let u' := v'.biUnion (fun n ↦ {p ∈ (nrange n).product (nrange n) | (p.1+1)*(m*p.2+r) = n})
-    use u'
-    constructor
-    · intro p pu
-      rw[mem_biUnion]; use (p.1+1)*(m*p.2+r)
-      constructor
-      · exact vv' (Finset.mem_image.mpr ⟨p, pu, rfl⟩)
-      · simp only [product_eq_sprod, mem_filter, mem_product, and_true]
-        rw[nrange, mem_range, mem_range]
-        have : (m * p.2 + r) ≠ 0 := by omega
-        constructor
-        · calc
-          _ < p.1 + 1 := lt_add_one p.1
-          _ ≤ (p.1 + 1) * (m*p.2 + r) := Nat.le_mul_of_nonzero_right (p.1 + 1) this
-          _ < _ := lt_add_one _
-        · calc
-          _ ≤ m*p.2 := Nat.le_mul_of_nonzero_left _ m0
-          _ < m*p.2 + r := by refine Nat.lt_add_of_nonzero_right _ r0
-          _ ≤ _ := by lia
-    · rw[Finset.sum_biUnion]
-      · apply Finset.sum_congr rfl
-        intro n nv'
-        calc
-          _ = ∑ p ∈ (nrange n).product (nrange n) with (p.1+1)*(m*p.2+r) = n, q^(n+1) := by
-            sorry
-          _ = #{p ∈ (nrange n).product (nrange n) | (p.1+1)*(m*p.2+r) = n} * q^(n+1) := by
-            sorry
-          _ = _ := by
-            apply congr_arg (fun (X:ℕ) ↦ X * q^(n+1))
-            sorry
-      · sorry
-  simp [mul_add, pow_add]
-  -- #check HasSum.prod_mk
-  sorry
-
-example (a b : ℕ) (h : a ≠ 0) : b ≤ a*b := by apply?
+lemma d_geom_sum {q limit : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : r ≠ 0) (m0 : m ≠ 0)
+    (rm : r < m) : HasSum (fun n ↦ q^(r*(n+1)) / (1 - q^(m*(n+1)))) limit
+    → HasSum (fun n ↦ d r m (n+1) * q^(n+1)) limit := by
+  intro sumh
+  suffices : HasSum (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) limit
+  · let g := fun p : ℕ × ℕ ↦ (p.1+1)*(m*p.2+r) - 1
+    have : (fun n ↦ (d r m (n+1)) * q^(n+1))
+        = (fun n ↦ ∑' p : g⁻¹' {n}, q^(((p.1.1)+1)*(m*(p.1.2)+r))) := by
+      ext n
+      let f := fun x : ℕ ↦ (⟨(n+1)/x - 1, (x-r)/m⟩ : ℕ × ℕ)
+      have : g⁻¹' {n} ⊆ {x ∈ nrange (n+1) | (x ∣ n+1) ∧ (x % m = r)}.image f := by
+        intro p ph
+        simp only [Set.mem_preimage, Set.mem_singleton_iff, g] at ph
+        simp only [coe_image, coe_filter, Set.mem_image, Set.mem_setOf_eq]
+        refine ⟨m*p.2 + r, ?_, ?_⟩
+        · simp only [mul_add_mod_self_left, nrange, mem_range]
+          refine ⟨by lia, ⟨p.1+1, by lia⟩, mod_eq_of_lt rm⟩
+        · simp only [add_tsub_cancel_right, ← Nat.eq_div_of_mul_eq_right m0 rfl, Prod.ext_iff,
+          and_true, f]
+          rw[←ph, (by lia : (p.1+1) * (m*p.2+r) - 1 + 1 = (p.1+1) * (m*p.2+r))]
+          rw[←Nat.eq_div_of_mul_eq_left (by omega) rfl]
+          omega
+      have : (g⁻¹' {n}).Finite := Set.Finite.subset (finite_toSet (image f _)) this
+      calc
+        _ = ∑ p ∈ this.toFinset, q^(n+1) := by
+          convert (Finset.sum_const _).symm using 1
+          rw[nsmul_eq_mul]
+          congr; symm
+          apply Finset.card_bij (fun p _ ↦ m*p.2 + r)
+          · intro p ph
+            simp only [Set.Finite.mem_toFinset, Set.mem_preimage, Set.mem_singleton_iff, g] at ph
+            simp only [mem_filter, mul_add_mod_self_left, nrange, mem_range]
+            refine ⟨by lia, ⟨p.1+1, by lia⟩, mod_eq_of_lt rm⟩
+          · rintro p ph q qh eq
+            simp only [Set.Finite.mem_toFinset, Set.mem_preimage, Set.mem_singleton_iff, g] at *
+            rw[←qh, ←eq] at ph
+            have : m * p.2 + r > 0 := by omega
+            have ph := sub_one_cancel (mul_pos (by omega) this) (mul_pos (by omega) this) ph
+            simp only [mul_eq_mul_right_iff, add_right_cancel_iff, Nat.add_eq_zero_iff,
+              Nat.mul_eq_zero, r0, and_false, or_false] at ph
+            refine Prod.ext_iff.mpr ⟨ph, ?_⟩
+            exact (Nat.mul_right_inj m0).mp (add_right_cancel eq)
+          · rintro x xh
+            obtain ⟨xR, xn1, xmr⟩ := mem_filter.mp xh
+            use ⟨(n+1)/x - 1, (x-r)/m⟩
+            have h : m ∣ (x-r) := by
+              apply dvd_of_mod_eq_zero (sub_mod_eq_zero_of_mod_eq _)
+              rw[xmr]
+              exact (mod_eq_of_lt rm).symm
+            have : r ≤ x := by
+              rw[←mod_add_div x m, xmr]
+              omega
+            simp only [Nat.mul_div_cancel' h, Nat.sub_add_cancel this, Set.Finite.mem_toFinset,
+              Set.mem_preimage, Set.mem_singleton_iff, exists_prop, and_true, g]
+            obtain ⟨y, xyn⟩ := xn1
+            have x0 : x ≠ 0 := by omega
+            have y0 : y ≠ 0 := by rintro rfl; omega
+            rw[xyn, ←Nat.eq_div_of_mul_eq_right x0 rfl, sub_one_add_one y0]
+            lia
+        _ = ∑' p : g⁻¹' {n}, q^(n+1) := by
+          convert (Finset.tsum_subtype' _ _).symm
+          apply this.coe_toFinset.symm
+        _ = _ := by
+          congr
+          ext ⟨p, ph⟩
+          simp only [Set.mem_preimage, Set.mem_singleton_iff, g] at ph
+          congr
+          lia
+    rw[this]; clear this
+    exact HasSum.tsum_fiberwise this g
+  · rw[mem_ball_zero_iff] at qB
+    have p_fun_summable : Summable (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) := by
+      have : ∀ p : ℕ × ℕ, ‖q^((p.1+1) * (m*p.2+r))‖ ≤ ‖q^(p.1)*q^(p.2)‖ := by
+        rintro ⟨a, b⟩
+        simp only [norm_pow, ←pow_add]
+        by_cases q0 : q = 0
+        · rw[q0, norm_zero, zero_pow (by lia : (a+1)*(m*b+r) ≠ 0)]
+          by_cases h : a+b = 0
+          · rw[h, pow_zero]; linarith
+          · rw[zero_pow h]
+        apply (pow_le_pow_iff_right_of_lt_one₀ (norm_pos_iff.mpr q0) qB).mpr
+        rw[add_mul]
+        apply Nat.add_le_add
+        · exact Nat.le_mul_of_pos_right a (by omega)
+        · rw[one_mul]
+          exact le_add_right_of_le (Nat.le_mul_of_pos_left b m0.pos)
+      apply Summable.of_norm_bounded _ this
+      apply Summable.mul_norm
+        <;> (simp only [norm_pow]; exact summable_geometric_of_lt_one (norm_nonneg q) qB)
+    apply (Summable.hasSum_iff p_fun_summable).mpr
+    · rw[Summable.tsum_prod p_fun_summable]
+      have : (fun a ↦ ∑' b : ℕ, q^((a+1) * (m*b+r)))
+          = (fun a ↦ q^(r*(a+1)) * (1 - q^(m*(a+1)))⁻¹) := by
+        ext a
+        rw[←tsum_geometric_of_norm_lt_one]; rotate_left
+        · rw[norm_pow]
+          exact pow_lt_one₀ (norm_nonneg q) (by simpa [mem_ball_zero_iff] using qB) (by lia)
+        rw[←smul_eq_mul, ←tsum_const_smul'']
+        congr
+        ext b
+        rw[smul_eq_mul, ←pow_mul, ←pow_add]
+        grind
+      simp only [this, ← div_eq_mul_inv]
+      exact sumh.tsum_eq
 
 end d_lemmas
 
@@ -327,6 +386,7 @@ lemma eq_C' {q : ℂ} (qB : q ∈ Metric.ball 0 1) : ∃ limitL : ℂ, ∃ limit
       apply tendsto_nhds_unique this prod
     rw[this]
     grobner
+#eval sum_sq_sq 0
 
 example : sum_sq_sq = fun n ↦ if n = 0 then 1 else 4*(d 1 4 n - d 3 4 n) := by
   apply eq_PS_on_disk
@@ -342,11 +402,20 @@ example : sum_sq_sq = fun n ↦ if n = 0 then 1 else 4*(d 1 4 n - d 3 4 n) := by
       rw[neg_eq_neg_one_mul q, mul_zpow, ←mul_assoc, this, one_mul]
     rw[this] at sumL
     exact L_4 q lL sumL
-  · have : (fun n ↦ (- -q)^(n+1) / (1 + (- -q)^(2*n+2)))
+  · rw[eq]
+    suffices h : HasSum (fun t ↦ term (fun n ↦ d 1 4 n - d 3 4 n) q (t+1)) lR
+    · have : 1 = ∑ i ∈ range 1, (term (fun n ↦ if n = 0 then 1 else 4 * (d 1 4 n - d 3 4 n)) q) i := by
+        simp[term]
+      rw[add_comm, this, ←hasSum_nat_add_iff]; clear this
+      simp [term, mul_assoc]
+      apply HasSum.mul_left 4
+      simpa [term] using h
+    have : (fun n ↦ (- -q)^(n+1) / (1 + (- -q)^(2*n+2)))
         = (fun n ↦ q^(n+1) / (1-q^(4*n+4)) - q^)
 
 
 
-
+-- HasSum (fun n ↦ q^(r*(n+1)) / (1 - q^(m*(n+1)))) limit
+--     → HasSum (fun n ↦ d r m (n+1) * q^(n+1)) limit
 
 end

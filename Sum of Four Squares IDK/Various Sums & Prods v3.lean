@@ -14,15 +14,9 @@ lemma prod_range_split (w : ℂ) {q : ℂ} {x y : ℕ} : ∏ n ∈ range (x+y), 
 
 -- For rewriting a Finset.prod by shifting the terms
 macro "pBij" f:term " inv " g:term : tactic => `(tactic| (
+  try simp only [←pow_succ'];
+  try simp only [←zpow_natCast];
   apply prod_bij $f (by grind) (by grind) (by intro z _; let := $g z; use this; grind) (by grind)
-  ))
-
--- A special version of pBij specifically designed for expressions that go between
-  -- a (1 - q*q^x) form and a (1 - q^(x+1)) form: See Section EQ1_lemmas
-macro "pBij'" f:term " inv " g:term : tactic => `(tactic| (
-  simp only [←pow_succ'];
-  simp only [←zpow_natCast];
-  pBij $f inv $g
   ))
 
 -- Useful for rewriting terms in a product
@@ -95,7 +89,7 @@ lemma W0_terms {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x : ℕ) : 1
   have hqx := pow_le_pow_left₀ (norm_nonneg q) qN1.le x; rw[one_pow] at hqx
   intro eq
   apply eq_of_sub_eq_zero at eq
-  apply_fun fun X ↦ ‖X‖ at eq
+  apply_fun Norm.norm at eq
   rw[norm_one, norm_mul, norm_pow] at eq
   have := mul_lt_mul' hqx aN1 (norm_nonneg a) one_pos
   rw[one_mul] at this
@@ -103,20 +97,13 @@ lemma W0_terms {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (x : ℕ) : 1
 lemma W0_terms' {q : ℂ} {x : ℕ} (qN1 : ‖q‖ < 1) (x0 : x ≠ 0) : 1 - q^x ≠ 0 := by
   intro eq
   apply eq_of_sub_eq_zero at eq
-  have := pow_lt_pow_left₀ qN1 (norm_nonneg q) x0
-  rw[←norm_pow q, ←eq, norm_one, one_pow] at this
-  linarith
+  symm at eq
+  apply Complex.norm_eq_one_of_pow_eq_one at eq
+  grind
 lemma W0 {a q : ℂ} (aN1 : ‖a‖ < 1) (qN1 : ‖q‖ < 1) (n : ℕ) : W a q n ≠ 0 := by
   rw[W, prod_ne_zero_iff]
   intro i _ eq
-  apply eq_of_sub_eq_zero at eq
-  apply_fun Norm.norm at eq
-  rw[norm_mul, norm_pow, norm_one] at eq
-  rw[eq] at aN1
-  have := pow_le_pow_left₀ (norm_nonneg q) qN1.le i
-  rw[one_pow] at this
-  have := mul_le_mul_of_nonneg_left this (norm_nonneg a)
-  linarith
+  exact (W0_terms aN1 qN1 i) eq
 
 -- Limit of the factors of W
 lemma W_terms_tendsto_1 {a q : ℂ} (qN1 : ‖q‖ < 1) (x : ℕ) :
@@ -200,22 +187,21 @@ lemma pCA3 {a q : ℂ} {N m : ℕ} (mR : m < N + 1) : ∏ n ∈ (range (N+1)).er
 
 -- Lemmas: polyConditionA Bound Changes
 lemma pCA4 {q : ℂ} {N m : ℕ} : ∏ n ∈ Ioc m N, (1 - q^((n:ℤ)-m))
-  = ∏ n ∈ range (N-m), (1 - q*q^n) := by pBij' (fun x _ ↦ x - m - 1) inv (fun z ↦ z + m + 1)
+  = ∏ n ∈ range (N-m), (1 - q*q^n) := by pBij (fun x _ ↦ x - m - 1) inv (fun z ↦ z + m + 1)
 lemma pCA5 {a q : ℂ} {N m : ℕ} : ∏ n ∈ Ioc m N, (1 - a*q^((n:ℤ)-m-1))
   = ∏ n ∈ range (N-m), (1 - a*q^n) := by
   simp only [←zpow_natCast]; pBij (fun x _ ↦ x - m - 1) inv (fun z ↦ z + m + 1)
 lemma pCA6 {q : ℂ} {m : ℕ} : ∏ n ∈ range m, (1 - q^((m:ℤ)-n)) = ∏ n ∈ range m, (1 - q*q^n) := by
-  pBij' (fun x _ ↦ m - x - 1) inv (fun z ↦ m - z - 1)
+  pBij (fun x _ ↦ m - x - 1) inv (fun z ↦ m - z - 1)
 lemma pCA7 {a q : ℂ} {N m : ℕ} : ∏ n ∈ (range (N+1)).erase 0, (1 - a*q^((n:ℤ)+m-1))
   = ∏ n ∈ Ico m (N+m), (1 - a*q^n) := by
   simp only [←zpow_natCast]; pBij (fun x _ ↦ x + m - 1) inv (fun z ↦ z + 1 - m)
 lemma pCA8 {q : ℂ} {m : ℕ} : ∏ n ∈ Icc 1 m, (-q^((n:ℤ)-m-1)) = ∏ n ∈ range m, (-q^((n:ℤ)-m)) := by
-  apply prod_bij (fun n _ ↦ n - 1) (by grind) (by grind) (by intro z _; use z + 1; grind)
-  grind
+  pBij (fun n _ ↦ n - 1) inv (fun z ↦ z + 1)
 lemma pCA9 {a q : ℂ} {m : ℕ} : ∏ n ∈ Icc 1 m, (1 - a⁻¹*q^((m:ℤ)+1-n))
     = ∏ n ∈ range m, (1 - a⁻¹*q*q^n) := by
   simp only [mul_assoc]
-  pBij' (fun n _ ↦ m - n) inv (fun z ↦ m - z)
+  pBij (fun n _ ↦ m - n) inv (fun z ↦ m - z)
 
 -- Lemmas: polyConditionA Other
 lemma pCA10 {q : ℂ} {N m : ℕ} (mR : m < N + 1) : (∏ n ∈ (range (N+1)).erase m, (1 - q^(n+m)))
@@ -271,16 +257,13 @@ lemma polyConditionA (a q : ℂ) (N : ℕ) (q0 : q ≠ 0) (a0 : a ≠ 0) (qN1 : 
   -- Remove the summands that equal 0
   intro m mR
   eval_poly
-  have : ∑ t ∈ range (N + 1), (A a q N t * ∏ n ∈ (range (N + 1)).erase t, eval (rt q m) (Dw q n))
-      = A a q N m * ∏ n ∈ (range (N + 1)).erase m, eval (rt q m) (Dw q n) := by
-    apply sum_eq_single
-    · intro t tR tm
-      apply mul_eq_zero_of_right
-      apply prod_eq_zero (mem_erase.mpr ⟨tm.symm, mR⟩)
-      rw[Dw, rt]; eval_poly
-      field
-    · exact fun h ↦ False.elim (h mR)
-  rw[this]; clear this
+  rw[sum_eq_single m]; rotate_left 1
+  · intro t tR tm
+    apply mul_eq_zero_of_right
+    apply prod_eq_zero (mem_erase.mpr ⟨tm.symm, mR⟩)
+    rw[Dw, rt]; eval_poly
+    field
+  · exact fun h ↦ False.elim (h mR)
   simp only [A, W, Dw]
   apply mem_range.mp at mR
   -- Rewriting the A term and the right side of the Dw term
