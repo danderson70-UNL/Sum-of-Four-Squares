@@ -1,6 +1,6 @@
 import Mathlib
 import «Sum of Four Squares IDK».«Various Sums & Prods v3»
-import «Sum of Four Squares IDK».«Power & Multilinear Series»
+import «Sum of Four Squares IDK».«Power & Multilinear Series v2»
 set_option linter.style.whitespace false
 
 section prod_props
@@ -174,18 +174,32 @@ def d := #{x ∈ nrange n | (x ∣ n) ∧ (x % m = r)}
 #eval {x ∈ nrange 15 | (x ∣ 15) ∧ (x % 4 = 1)}
 #eval d 1 4 15
 
---Nat.lt_add_of_pos_right
--- theorem Nat.lt_add_of_nonzero_right (a : ℕ) {b : ℕ} (b0 : b ≠ 0) : a < a + b :=
---   Nat.lt_add_of_pos_right (b0.pos)
--- theorem Nat.le_mul_of_nonzero_left (b : ℕ) {a : ℕ} (a0 : a ≠ 0)  : b ≤ a * b :=
---   Nat.le_mul_of_pos_left _ (a0.pos)
--- theorem Nat.le_mul_of_nonzero_right (a : ℕ) {b : ℕ} (b0 : b ≠ 0) : a ≤ a * b :=
---   Nat.le_mul_of_pos_right _ (b0.pos)
-
-lemma d_geom_sum {q limit : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : r ≠ 0) (m0 : m ≠ 0)
-    (rm : r < m) : HasSum (fun n ↦ q^(r*(n+1)) / (1 - q^(m*(n+1)))) limit
-    → HasSum (fun n ↦ d r m (n+1) * q^(n+1)) limit := by
-  intro sumh
+lemma d_geom_sum {q : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : r ≠ 0) (m0 : m ≠ 0)
+    (rm : r < m) : ∃ limit : ℂ, HasSum (fun n ↦ q^(r*(n+1)) / (1 - q^(m*(n+1)))) limit
+    ∧ HasSum (fun n ↦ d r m (n+1) * q^(n+1)) limit := by
+  rw[mem_ball_zero_iff] at qB
+  obtain ⟨limit, sumH⟩ : Summable (fun n ↦ q^(r*(n+1)) / (1-q^(m*(n+1)))) := by
+    apply Summable.of_norm_bounded (g := fun n ↦ ‖q‖^n/(1-‖q‖))
+    · apply Summable.div_const
+      apply summable_geometric_of_lt_one (norm_nonneg q) qB
+    · intro n
+      rw[norm_div]
+      by_cases q0 : q = 0
+      · simp[q0, zero_pow (by lia : m*(n+1) ≠ 0), zero_pow (by lia : r*(n+1) ≠ 0)]
+      apply div_le_div₀ (pow_nonneg (norm_nonneg q) n) _ (by linarith) _
+      · rw[norm_pow]
+        apply (pow_le_pow_iff_right_of_lt_one₀ (norm_pos_iff.mpr q0) qB).mpr
+        trans n+1
+        · linarith
+        · apply Nat.le_mul_of_pos_left _ r0.pos
+      · calc
+          _ ≤ 1 - ‖q‖^(m*(n+1)) := by
+            have : ‖q‖^(m*(n+1)) ≤ ‖q‖ := pow_le_of_le_one (norm_nonneg q) qB.le (by lia)
+            grind
+          _ ≤ _ := by
+            rw[←norm_one (α := ℂ), ←norm_pow]
+            apply norm_sub_norm_le
+  refine ⟨limit, sumH, ?_⟩
   suffices : HasSum (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) limit
   · let g := fun p : ℕ × ℕ ↦ (p.1+1)*(m*p.2+r) - 1
     have : (fun n ↦ (d r m (n+1)) * q^(n+1))
@@ -252,8 +266,7 @@ lemma d_geom_sum {q limit : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : 
           lia
     rw[this]; clear this
     exact HasSum.tsum_fiberwise this g
-  · rw[mem_ball_zero_iff] at qB
-    have p_fun_summable : Summable (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) := by
+  · have p_fun_summable : Summable (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) := by
       have : ∀ p : ℕ × ℕ, ‖q^((p.1+1) * (m*p.2+r))‖ ≤ ‖q^(p.1)*q^(p.2)‖ := by
         rintro ⟨a, b⟩
         simp only [norm_pow, ←pow_add]
@@ -285,7 +298,127 @@ lemma d_geom_sum {q limit : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : 
         rw[smul_eq_mul, ←pow_mul, ←pow_add]
         grind
       simp only [this, ← div_eq_mul_inv]
-      exact sumh.tsum_eq
+      exact sumH.tsum_eq
+
+-- lemma L_6 (a : ℕ) {b p : ℕ} (b0 : b ≠ 0) (p1 : p ≠ 1) :
+--     a ∣ b → padicValNat p a ≤ padicValNat p b := by
+--   intro ab
+--   have : p^(padicValNat p a) ∣ b := pow_padicValNat_dvd.trans ab
+--   rwa[←pow_dvd_iff_le_padicValNat p1 b0]
+
+-- lemma L_7 (a : ℕ) {b p : ℕ} (a0 : a ≠ 0) (pPrime : Nat.Prime p) :
+--     a ∣ b → divMaxPow a p ∣ divMaxPow b p := by
+--   intro ab
+--   rw[←pow_padicValNat_mul_divMaxPow p a, ←pow_padicValNat_mul_divMaxPow p b] at ab
+--   have eq := (dvd_mul_left _ _).trans ab
+--   have : Coprime (a.divMaxPow p) (p^(padicValNat p b)) :=
+--     pPrime.coprime_pow_of_not_dvd (not_dvd_divMaxPow (pPrime.one_lt) a0)
+--   apply this.dvd_of_dvd_mul_left eq
+
+-- lemma L_5 (n : ℕ) : d 3 4 (n+1) ≤ d 1 4 (n+1) := by
+--   induction n using Nat.case_strong_induction_on with
+--   | hz => decide
+--   | hi n ih =>
+--     by_cases d3_0 : d 3 4 (n+1+1) = 0
+--     · rw[d3_0]; linarith
+--     obtain ⟨p, pR⟩ := Finset.exists_minimal (Finset.card_pos.mp (Ne.pos d3_0))
+--     simp only [mem_filter] at pR
+--     obtain ⟨⟨pR, p_dvd, p3⟩, h⟩ := pR
+--     have pPrime : Nat.Prime p := by sorry
+--     set t := divMaxPow (n+1+1) p with ←t_def
+--     set e := padicValNat p (n+1+1) with ←e_def
+--     have eq := (t_def ▸ e_def ▸ pow_padicValNat_mul_divMaxPow p (n+1+1))
+--     have t0 : t ≠ 0 := by
+--       rintro t0
+--       rw[t0, mul_zero] at eq
+--       omega
+--     have le_e : 1 ≤ e := by
+--       rw[←pow_one p] at p_dvd
+--       exact (pow_dvd_iff_le_padicValNat (pPrime.ne_one) (by omega)).mp p_dvd
+--     have he_2 : d 3 4 (p^(e-2)*t) ≤ d 1 4 (p^(e-2)*t) := by
+--       rw[←Nat.sub_add_cancel (_ : 1 ≤ p^(e-2) * t)]
+--       · apply ih
+--         apply sub_le_of_le_add
+--         rw[←add_le_add_iff_right 1, ←eq, succ_le_iff]
+--         apply (mul_lt_mul_iff_left₀ t0.pos).mpr
+--         apply Nat.pow_lt_pow_right pPrime.one_lt
+--         omega
+--       · rw[one_le_iff_ne_zero]
+--         apply mul_ne_zero _ t0
+--         exact pow_ne_zero (e-2) pPrime.ne_zero
+--     clear h t_def e_def p_dvd
+--     rw[←eq]
+--     have (r : ℕ) : d r 4 (p^e*t) = d r 4 (p^(e-2)*t) + d 1 4 t + d 3 4 t := by
+--       have : {x ∈ nrange (p^e*t) | x ∣ p^e*t ∧ x%4=r}
+--           = {x ∈ nrange (p^(e-2)*t) | x ∣ p^(e-2)*t ∧ x%4=r}
+--           ∪ ({x ∈ nrange (p^e*t) | x ∣ p^e*t ∧ padicValNat p x = (e-1) ∧ x%4=r}
+--           ∪ {x ∈ nrange (p^e*t) | x ∣ p^e*t ∧ padicValNat p x = e ∧ x%4=r}) := by
+--         ext x; constructor <;> simp only [mem_filter, mem_union, and_imp]
+--         · rintro xR x_dvd xr
+--           simp only [xr, and_true, xR, x_dvd, true_and]
+--           have xp_e : padicValNat p x ≤ e := by
+--               have : e = padicValNat p (p^e*t) := by
+--                 rw[padicValNat, maxPowDvdDiv_base_pow_mul pPrime.one_lt t0]
+--                 simp only [Nat.right_eq_add, padicValNat.eq_zero_iff]
+--                 right; right
+--                 exact not_dvd_divMaxPow pPrime.one_lt (by omega : n+1+1 ≠ 0)
+--               rw[this]
+--               apply L_6 x (by rw[eq]; omega) pPrime.ne_one x_dvd
+--           by_cases h : p^(e-1) ∣ x
+--           · right
+--             have x0 : x ≠ 0 := ne_zero_of_dvd_ne_zero (by rw[eq]; omega) x_dvd
+--             rw[pow_dvd_iff_le_padicValNat pPrime.ne_one x0] at h
+--             omega
+--           · left
+--             have : x ∣ p^(e-2)*t := by
+--               apply (pow_dvd_iff_le_padicValNat _ _).not.mp at h
+--               rw[not_le] at h
+--               apply le_sub_one_of_lt at h
+--               rw[←pow_padicValNat_mul_divMaxPow p x]
+--               sorry
+--             refine ⟨?_, this⟩
+--             rw[nrange, mem_range]
+--             have : x ≤ p^(e-2)*t := Nat.le_of_dvd (mul_pos (pow_pos pPrime.pos _) t0.pos) this
+--             linarith
+--         · rintro (⟨xR, x_dvd, xr⟩ | ⟨xR, x_dvd, xVal, xr⟩ | ⟨xR, x_dvd, xVal, xr⟩)
+--           · simp only [nrange, mem_range, Order.lt_add_one_iff, ne_eq] at *;
+--             refine ⟨?_, x_dvd.trans (Nat.mul_dvd_mul_right (Nat.pow_dvd_pow p (by omega)) t), xr⟩
+--             apply xR.trans
+--             apply mul_le_mul_right t
+--             apply Nat.pow_le_pow_right pPrime.pos (by omega)
+--           · refine ⟨?_, ?_, ?_⟩ <;> assumption
+--           · refine ⟨?_, ?_, ?_⟩ <;> assumption
+--       rw[add_assoc, d, this, d, d, d]
+--       rw[Finset.card_union_of_disjoint]; swap
+--       · apply disjoint_left.mpr
+--         intro x
+--         simp only [mem_filter, mem_union, not_or, not_and, and_imp]
+--         intro xR x_dvd xr
+--         apply L_6 x (by apply mul_ne_zero _ t0; exact pow_ne_zero _ pPrime.ne_zero)
+--             pPrime.ne_one at x_dvd
+--         rw[padicValNat_base_pow_mul pPrime.one_lt t0] at x_dvd
+--         nth_rw 2 [padicValNat] at x_dvd
+--         rw[maxPowDvdDiv_of_not_dvd (not_dvd_divMaxPow pPrime.one_lt (by omega : n+1+1 ≠ 0))] at x_dvd
+--         rw[zero_add] at x_dvd
+--         constructor
+--         · intro w ww www wwww
+--           rw[www] at x_dvd
+
+--           linarith
+
+
+--         have : padicValNat p t = 0 := by
+--           rw[padicValNat]
+--           exact not_dvd_divMaxPow pPrime.one_lt (by omega : n+1+1 ≠ 0)
+--         sorry
+--       congr 1
+--       rw[Finset.card_union_of_disjoint]; swap
+--       · sorry
+--       congr 1
+--       · sorry
+--       · sorry
+--     rw[this 3, this 1]
+--     gcongr
 
 end d_lemmas
 
@@ -303,7 +436,7 @@ def sum_sq_sq_sq_sq (n : ℕ) := #{(⟨w,_⟩, ⟨x,_⟩, ⟨y,_⟩, ⟨z,_⟩) 
 #eval sum_sq_sq_sq_sq 5
 
 lemma L_4 (q : ℂ) : ∀ limit : ℂ, HasSum (fun z : ℤ ↦ q^(z^2)) limit
-    → HasSum (term sum_sq_sq q) (limit^2) := by sorry
+    → HasSum (term (fun n ↦ sum_sq_sq n) q) (limit^2) := by sorry
 
 end sum_of_squares_formulae
 
@@ -389,9 +522,17 @@ lemma eq_C' {q : ℂ} (qB : q ∈ Metric.ball 0 1) : ∃ limitL : ℂ, ∃ limit
 #eval sum_sq_sq 0
 
 example : sum_sq_sq = fun n ↦ if n = 0 then 1 else 4*(d 1 4 n - d 3 4 n) := by
+  suffices h : (fun n ↦ (sum_sq_sq n : ℤ))
+      = (fun n ↦ if n = 0 then 1 else 4*((d 1 4 n : ℤ) - (d 3 4 n)))
+  · ext n
+    have eq := congrFun h n
+    grind
   apply eq_PS_on_disk
   intro q qB
-  have : -q ∈ Metric.ball 0 1 := by sorry
+  have : -q ∈ Metric.ball 0 1 := by
+    apply mem_ball_zero_iff.mpr
+    rw[norm_neg]
+    exact mem_ball_zero_iff.mp qB
   obtain ⟨lL, lR, sumL, sumR, eq⟩ := eq_C' this
   use lL^2
   constructor
@@ -403,19 +544,32 @@ example : sum_sq_sq = fun n ↦ if n = 0 then 1 else 4*(d 1 4 n - d 3 4 n) := by
     rw[this] at sumL
     exact L_4 q lL sumL
   · rw[eq]
-    suffices h : HasSum (fun t ↦ term (fun n ↦ d 1 4 n - d 3 4 n) q (t+1)) lR
-    · have : 1 = ∑ i ∈ range 1, (term (fun n ↦ if n = 0 then 1 else 4 * (d 1 4 n - d 3 4 n)) q) i := by
-        simp[term]
+    suffices h : HasSum (fun n ↦ (d 1 4 (n+1))*q^(n+1) - (d 3 4 (n+1))*q^(n+1)) lR
+    · have : 1 = ∑ i ∈ range 1, (term (fun n ↦ if n = 0 then 1
+          else 4 * (d 1 4 n - d 3 4 n)) q) i := by simp[term]
       rw[add_comm, this, ←hasSum_nat_add_iff]; clear this
-      simp [term, mul_assoc]
+      simp only [term, Nat.add_eq_zero_iff, one_ne_zero, and_false, ↓reduceIte, Int.cast_mul,
+        Int.cast_ofNat, mul_assoc]
       apply HasSum.mul_left 4
-      simpa [term] using h
+      have : (fun n ↦ ↑((d 1 4 (n+1) : ℤ) - (d 3 4 (n+1))) * q^(n+1))
+          = (fun n ↦ (d 1 4 (n+1))*q^(n+1) - (d 3 4 (n+1))*q^(n+1)) := by
+        ext n
+        rw[←sub_mul]
+        congr
+        simp
+      rwa[this]
     have : (fun n ↦ (- -q)^(n+1) / (1 + (- -q)^(2*n+2)))
-        = (fun n ↦ q^(n+1) / (1-q^(4*n+4)) - q^)
-
-
-
--- HasSum (fun n ↦ q^(r*(n+1)) / (1 - q^(m*(n+1)))) limit
---     → HasSum (fun n ↦ d r m (n+1) * q^(n+1)) limit
+        = (fun n ↦ q^(1*(n+1)) / (1-q^(4*(n+1))) - q^(3*(n+1)) / (1-q^(4*(n+1)))) := by
+      ext n
+      calc
+        _ = q^(n+1) * (1-q^(2*n+2)) / ((1+q^(2*n+2)) * (1-q^(2*n+2))) := by
+          have : 1-q^(2*n+2) ≠ 0 := by apply W0_terms' (mem_ball_zero_iff.mp qB) (by omega)
+          field
+        _ = _ := by ring
+    rw[this] at sumR; clear this
+    obtain ⟨l1, ⟨h1_quot, h1_d⟩⟩ := d_geom_sum qB one_ne_zero four_ne_zero (by omega)
+    obtain ⟨l3, ⟨h3_quot, h3_d⟩⟩ := d_geom_sum qB three_ne_zero four_ne_zero (by omega)
+    rw[HasSum.unique sumR (HasSum.sub h1_quot h3_quot)]
+    apply HasSum.sub h1_d h3_d
 
 end
