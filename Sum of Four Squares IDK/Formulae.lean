@@ -198,7 +198,7 @@ lemma d_geom_sum {q : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : r ≠ 
             rw[←norm_one (α := ℂ), ←norm_pow]
             apply norm_sub_norm_le
   refine ⟨limit, sumH, ?_⟩
-  suffices : HasSum (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) limit
+  suffices h : HasSum (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) limit
   · let g := fun p : ℕ × ℕ ↦ (p.1+1)*(m*p.2+r) - 1
     have : (fun n ↦ (d r m (n+1)) * q^(n+1))
         = (fun n ↦ ∑' p : g⁻¹' {n}, q^(((p.1.1)+1)*(m*(p.1.2)+r))) := by
@@ -261,8 +261,8 @@ lemma d_geom_sum {q : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : r ≠ 
           simp only [Set.mem_preimage, Set.mem_singleton_iff, g] at ph
           congr
           lia
-    rw[this]; clear this
-    exact HasSum.tsum_fiberwise this g
+    rw[this]
+    exact HasSum.tsum_fiberwise h g
   show HasSum (fun (p : ℕ × ℕ) ↦ q^((p.1+1)*(m*p.2+r))) limit
   have p_fun_summable : Summable (fun p : ℕ × ℕ ↦ q^((p.1+1)*(m*p.2+r))) := by
     have : ∀ p : ℕ × ℕ, ‖q^((p.1+1) * (m*p.2+r))‖ ≤ ‖q^(p.1)*q^(p.2)‖ := by
@@ -294,6 +294,156 @@ lemma d_geom_sum {q : ℂ} (qB : q ∈ Metric.ball 0 1) {r m : ℕ} (r0 : r ≠ 
     exact sumH.tsum_eq
 
 end d_lemmas
+
+
+section σ_lemmas
+open Finset Nat
+
+-- σ 1 n is the standard σ function from number theroy
+def σ (m n : ℕ) := ∑ x ∈ {x ∈ nrange n | x ∣ n ∧ m ∣ x}, x
+
+lemma σ_sub_σ_eq (n : ℕ) : (σ 1 n) - (σ 4 n) = ∑ x ∈ {x ∈ nrange n | x ∣ n ∧ ¬4 ∣ x}, x := by
+  simp only [σ, isUnit_iff_eq_one, IsUnit.dvd, and_true]
+  symm
+  apply Nat.eq_sub_of_add_eq'
+  have := Finset.sum_filter_add_sum_filter_not {x ∈ nrange n | x ∣ n} (fun x ↦ 4 ∣ x) (fun x ↦ x)
+  convert this using 3 <;> grind
+
+lemma σ_formula {q : ℂ} (qB : q ∈ Metric.ball 0 1) {m : ℕ} (m0 : m ≠ 0) :
+    ∃ limit : ℂ, HasSum (fun n ↦ (m * q^(m*(n+1)) / (1-q^(m*(n+1)))^2)) limit
+    ∧ HasSum (fun n ↦ σ m (n+1) * q^(n+1)) limit := by
+  have qN1 := mem_ball_zero_iff.mp qB
+  let g := fun (p : ℕ × ℕ × ℕ) ↦ (m*(p.1+1)*(1+p.2.1+p.2.2))
+  obtain ⟨limit, sumH⟩ : Summable (fun p ↦ m * q^(g p)) := by
+    have : ∀ p, ‖q^(g p)‖ ≤ ‖q^(p.1) * (q^(p.2.1) * q^(p.2.2))‖ := by
+      intro ⟨a, b, c⟩
+      simp only [norm_pow, ←pow_add, g]
+      apply pow_le_pow_of_le_one (norm_nonneg q) qN1.le
+      rw[←add_assoc, mul_add, mul_add]
+      gcongr
+      · linarith [Nat.le_mul_of_pos_left a.succ m0.pos]
+      · apply Nat.le_mul_of_pos_left; lia
+      · apply Nat.le_mul_of_pos_left; lia
+    apply Summable.mul_left
+    apply Summable.of_norm_bounded _ this
+    apply Summable.mul_norm _ (Summable.mul_norm _ _)
+      <;> (simp only [norm_pow]; exact summable_geometric_of_lt_one (norm_nonneg q) qN1)
+  refine ⟨limit, ?_, ?_⟩
+  · have : Summable (fun n ↦ m * q^(m*(n+1)) / (1-q^(m*(n+1)))^2) := by
+      have : ∀ n : ℕ, ‖q^(m*(n+1)) / (1-q^(m*(n+1)))^2‖ ≤ ‖q‖^n / (1-‖q‖)^2 := by
+        intro n
+        rw[norm_div, norm_pow, norm_pow]
+        refine div_le_div₀ (pow_nonneg (norm_nonneg q) _) ?_ (by apply pow_pos; linarith) ?_
+        · apply pow_le_pow_of_le_one (norm_nonneg q) qN1.le
+          exact (le_succ n).trans (Nat.le_mul_of_pos_left _ m0.pos)
+        · rw[sq_le_sq, abs_norm, abs_of_pos (sub_pos.mpr qN1)]
+          calc
+            _ ≤ 1 - ‖q‖^(m*(n+1)) := by
+              have := pow_le_of_le_one (norm_nonneg q) qN1.le (by lia : m*(n+1) ≠ 0)
+              linarith
+            _ ≤ _ := by
+              rw[←norm_pow, ←norm_one (α := ℂ)]
+              apply norm_sub_norm_le
+      simp only [mul_div_assoc]
+      apply Summable.mul_left
+      apply Summable.of_norm_bounded _ this
+      apply Summable.mul_right
+      exact summable_geometric_of_lt_one (norm_nonneg q) qN1
+    rw[this.hasSum_iff, ←sumH.tsum_eq]
+    rw[sumH.summable.tsum_prod]
+    congr; ext n
+    rw[Summable.tsum_prod (sumH.summable.prod_factor n)]
+    calc
+      _ = m * q^(m*(n+1)) * (1-q^(m*(n+1)))⁻¹ * (1-q^(m*(n+1)))⁻¹ := by field_simp
+      _ = m * q^(m*(n+1)) * (∑' b : ℕ, (q^(m*(n+1)))^b) * (∑' c : ℕ, (q^(m*(n+1)))^c) := by
+        rw[tsum_geometric_of_norm_lt_one]
+        rw[norm_pow]; exact pow_lt_one₀ (norm_nonneg q) qN1 (by lia)
+      _ = _ := by
+        simp only [g, ←tsum_mul_left, ←tsum_mul_right]
+        apply tsum_congr; intro b; apply tsum_congr; intro c
+        simp [←pow_mul, mul_assoc, ←pow_add, m0]
+        congr; ring
+  · let f := fun p ↦ g p - 1
+    suffices : (fun n ↦ ↑(σ m (n+1)) * q^(n+1)) = (fun n ↦ ∑' p : f⁻¹' {n}, m * q^(g p))
+    · rw[this]
+      exact HasSum.tsum_fiberwise sumH f
+    ext n
+    let X := {x ∈ nrange (n+1) | x ∣ (n+1) ∧ m ∣ x}
+    let XF (x : ℕ) := ((nrange (n+1)) ×ˢ (nrange (n+1)) ×ˢ (nrange (n+1))).filter
+        (fun p ↦ x*(p.1+1)=(n+1) ∧ (1+p.2.1+p.2.2)=x/m)
+    have f_finite : (f⁻¹' {n}).Finite := by
+      suffices : f⁻¹' {n} ⊆ ↑((nrange (n+1)) ×ˢ (nrange (n+1)) ×ˢ (nrange (n+1)))
+      · exact Set.Finite.subset (finite_toSet _) this
+      intro p
+      simp only [Set.mem_preimage, Set.mem_singleton_iff, nrange, coe_product, coe_range,
+        Set.mem_prod, Set.mem_Iio, Order.lt_add_one_iff, f, g]
+      intro eq
+      obtain ⟨m', rfl⟩ : ∃ m' : ℕ, m = m' + 1 := exists_eq_succ_of_ne_zero m0
+      grind
+    calc
+      _ = ∑ x ∈ X, x * q^(n+1) := by simp [σ, X, sum_mul]
+      _ = ∑ x ∈ X, ∑ b ∈ XF x, m * q^(n+1) := by
+        apply sum_congr rfl
+        simp only [nrange, mem_filter, mem_range, Order.lt_add_one_iff, sum_const, nsmul_eq_mul,
+          ← mul_assoc, ← cast_mul, mul_eq_mul_right_iff, Nat.cast_inj, ne_eq, Nat.add_eq_zero_iff,
+          one_ne_zero, and_false, not_false_eq_true, pow_eq_zero_iff, and_imp, X]
+        rintro x - x_dvd_n1 ⟨t, rfl⟩; left
+        rw[mul_comm]; congr; symm
+        nth_rw 2 [←card_range t]
+        simp only [XF, mul_div_cancel_right₀ t m0]
+        apply card_bij (fun p _ ↦ p.2.2)
+        · simp only [mem_filter, mem_product, mem_range, and_imp, Prod.forall]
+          rintro a b c - - - - eq
+          omega
+        · simp only [mem_filter, mem_product, and_imp, Prod.forall, Prod.mk.injEq]
+          rintro a b c - - - h1 h2 x y z - - - h3 h4 rfl
+          rw[←h3] at h1
+          have : (a+1) = x+1 := by exact Nat.eq_of_mul_eq_mul_left (mul_pos (by omega) m0.pos) h1
+          refine ⟨by lia, by omega, rfl⟩
+        · simp only [mem_range, nrange, mem_filter, mem_product, Order.lt_add_one_iff, exists_prop,
+            Prod.exists, exists_eq_right]
+          intro b b_lt_t
+          obtain ⟨a, eq⟩ := x_dvd_n1
+          use a-1, t-b-1
+          obtain ⟨m', rfl⟩ : ∃ m' : ℕ, m = m' + 1 := exists_eq_succ_of_ne_zero m0
+          obtain ⟨t', rfl⟩ : ∃ t' : ℕ, t = t' + 1 := exists_eq_succ_of_ne_zero (by intro rfl; omega)
+          obtain ⟨a', rfl⟩ : ∃ a' : ℕ, a = a' + 1 := exists_eq_succ_of_ne_zero (by intro rfl; omega)
+          grind
+      _ = ∑ p ∈ X.biUnion XF, m * q^(n+1) := by
+        rw[sum_biUnion]
+        rw[pairwiseDisjoint_iff]
+        simp only [coe_filter, Set.mem_setOf_eq, nonempty_def, mem_inter, mem_filter, mem_product,
+          Prod.exists, forall_exists_index, and_imp, X, XF]
+        rintro x - - - y - - - a - - - - - h1 - - - - h2 -
+        rw[←h2] at h1
+        apply Nat.eq_of_mul_eq_mul_right (succ_pos a) h1
+      _ = ∑ p ∈ X.biUnion XF, m * q^(g p) := by
+        convert (sum_congr rfl _)
+        simp only [mem_biUnion, mem_filter, mem_product, mul_eq_mul_left_iff, cast_eq_zero,
+          forall_exists_index, and_imp, Prod.forall, X, XF, g]
+        rintro a b c x _ _ m_dvd_x _ _ _ h1 h2
+        left; congr
+        rw[←h1, ←Nat.mul_div_cancel' m_dvd_x, ←h2]
+        lia
+      _ = ∑ p ∈ f_finite.toFinset, m * q^(g p) := by
+        congr
+        ext p
+        simp only [nrange, mem_biUnion, mem_filter, mem_range, Order.lt_add_one_iff, mem_product,
+          Set.Finite.mem_toFinset, Set.mem_preimage, Set.mem_singleton_iff, X, XF, f, g]
+        constructor
+        · simp only [forall_exists_index, and_imp]
+          rintro x - - m_dvd_x - - - h1 h2
+          rw[h2, mul_right_comm, Nat.mul_div_cancel' m_dvd_x]
+          omega
+        · intro eq
+          use m*(1+p.2.1+p.2.2)
+          obtain ⟨m', rfl⟩ : ∃ m' : ℕ, m = m' + 1 := exists_eq_succ_of_ne_zero m0
+          refine ⟨⟨by lia, by use (p.1+1); lia, dvd_mul_right _ _⟩, ⟨by lia, by lia, by lia⟩,
+              by lia, Nat.eq_div_of_mul_eq_right m0 rfl⟩
+      _ = _ := by
+        convert (Finset.tsum_subtype' _ _).symm <;> exact f_finite.coe_toFinset.symm
+
+end σ_lemmas
 
 
 section sum_of_squares_formulae
@@ -394,15 +544,10 @@ lemma L_4 {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ limit : ℂ, HasSum (fun z : ℤ �
       apply Summable.int_rec <;> (
           apply Summable.of_norm_bounded (summable_geometric_of_lt_one (norm_nonneg q) qN1);
           intro i; rw[norm_norm, norm_pow];
-          apply pow_le_pow_of_le_one (norm_nonneg q) qN1.le;)
+          apply pow_le_pow_of_le_one (norm_nonneg q) qN1.le)
       · exact Nat.le_self_pow two_ne_zero i
       · have := Nat.le_self_pow two_ne_zero (i+1)
         linarith
-    -- have h := Summable.mul_norm this this
-    -- exact h
-    -- rw[(rfl : NonUnitalSeminormedRing.toSeminormedAddCommGroup.toNorm
-    --     = instCommCStarAlgebraComplex.toCStarAlgebra.toNorm)]
-    -- exact Summable.mul_norm this this
     exact (Summable.mul_norm this this : _)
   rw[prod_summable.hasSum_iff, Summable.tsum_prod prod_summable]
   calc
@@ -471,11 +616,10 @@ theorem eq_2aq {q x : ℂ} (qB : q ∈ Metric.ball 0 1) (h₂ : ∀ n : ℕ, 1-q
     ring
   · rw[eq]; field
 
-lemma eq_C' {q : ℂ} (qB : q ∈ Metric.ball 0 1) : ∃ limitL : ℂ, ∃ limitR,
+lemma eq_3 {q : ℂ} (qB : q ∈ Metric.ball 0 1) : ∃ limitL, ∃ limitR,
     HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limitL
     ∧ HasSum (fun n ↦ (-q)^(n+1) / (1+(-q)^(2*n+2))) limitR
     ∧ limitL^2 = 1 + 4 * limitR := by
-  have qN1 := mem_ball_zero_iff.mp qB
   have h₂ : ∀ n : ℕ, 1 - q^n*0 + q^(2*n) ≠ 0 := by
     intro n; rw[mul_zero, sub_zero]
     exact h₁_qB qB _
@@ -484,8 +628,7 @@ lemma eq_C' {q : ℂ} (qB : q ∈ Metric.ball 0 1) : ∃ limitL : ℂ, ∃ limit
   simp only [mul_zero, add_zero, sub_zero, fun n ↦ div_self (h₁_qB qB (2*n+2)),
     one_mul, div_eq_mul_inv, ←inv_pow, ←mul_pow] at prod
   simp only [mul_zero, sub_zero] at sum
-  use lJ, lS
-  refine ⟨Jsum, ?_, ?_⟩
+  refine ⟨lJ, lS, Jsum, ?_, ?_⟩
   · simp only [fun n ↦ (by omega : 2*n+2 = 2*(n+1)), fun n ↦ Even.neg_pow (even_two_mul (n+1)) q]
     simp only [fun n ↦ (by omega : 2*(n+1) = 2*n+2)]
     exact sum
@@ -494,7 +637,6 @@ lemma eq_C' {q : ℂ} (qB : q ∈ Metric.ball 0 1) : ∃ limitL : ℂ, ∃ limit
       apply tendsto_nhds_unique this prod
     rw[this]
     grobner
-#eval sum_sq_sq 0
 
 theorem Jacobi_sum_of_two_squares : sum_sq_sq
     = fun n ↦ if n = 0 then 1 else 4*(d 1 4 n - d 3 4 n) := by
@@ -509,7 +651,7 @@ theorem Jacobi_sum_of_two_squares : sum_sq_sq
     apply mem_ball_zero_iff.mpr
     rw[norm_neg]
     exact mem_ball_zero_iff.mp qB
-  obtain ⟨lL, lR, sumL, sumR, eq⟩ := eq_C' this
+  obtain ⟨lL, lR, sumL, sumR, eq⟩ := eq_3 this
   use lL^2
   constructor
   · have : (fun (z:ℤ) ↦ (-1) ^ z * (-q) ^ z ^ 2) = (fun z ↦ q^(z^2)) := by
@@ -549,3 +691,105 @@ theorem Jacobi_sum_of_two_squares : sum_sq_sq
     apply HasSum.sub h1_d h3_d
 
 end sum_sq_sq_formula
+
+
+section sum_sq_sq_sq_sq_formula
+open Filter Finset Topology
+
+lemma eq_4 {q : ℂ} (qB : q ∈ Metric.ball 0 1) : ∃ limitL, ∃ limitR,
+    HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limitL
+    ∧ HasSum (fun n ↦ (-q)^(n+1) / (1+q^(n+1))^2) limitR
+    ∧ limitL^4 = 1 + 8 * limitR := by
+  have h₂ : ∀ n : ℕ, 1 - q^n*(-2) + q^(2*n) ≠ 0 := by
+    intro n
+    rw[mul_neg, sub_neg_eq_add, mul_comm 2 n, pow_mul, ←one_pow 2, mul_comm]
+    nth_rw 2 [←mul_one 2]
+    rw[←add_pow_two 1 (q^n)]
+    apply pow_ne_zero
+    exact h₁_qB qB _
+  obtain ⟨lP, lS, prod, sum, eq⟩ := eq_2aq qB h₂
+  obtain ⟨lJ, Jsum, Jprod⟩ := JTP_1 qB
+  refine ⟨lJ, lS, Jsum, ?_, ?_⟩
+  · convert sum
+    ring
+  · have : lJ^4 = lP := by
+      have := HasProd.tendsto_prod_nat (HasProd.pow Jprod 4)
+      have prod : Tendsto (fun N ↦ ∏ n ∈ range N, ((1-q^(n+1)) / (1+q^(n+1)))^4) atTop (𝓝 lP) := by
+        convert prod
+        field
+      exact tendsto_nhds_unique this prod
+    rw[this]
+    grobner
+
+lemma Jacobi_sum_of_four_squares : sum_sq_sq_sq_sq
+    = fun n ↦ if n = 0 then 1 else 8 * ∑ x ∈ {x ∈ nrange n | x ∣ n ∧ ¬4 ∣ x}, x := by
+  suffices h : (fun n ↦ (sum_sq_sq_sq_sq n : ℤ))
+      = (fun n ↦ if n = 0 then 1 else 8*(σ 1 n : ℤ) - 8*(σ 4 n))
+  · ext n
+    have eq := congrFun h n
+    rw[←σ_sub_σ_eq n]
+    grind
+  apply eq_PS_on_disk
+  intro q qB
+  have : -q ∈ Metric.ball 0 1 := by
+    apply mem_ball_zero_iff.mpr
+    rw[norm_neg]
+    exact mem_ball_zero_iff.mp qB
+  obtain ⟨lL, lR, sumL, sumR, eq⟩ := eq_4 this
+  use lL^4
+  constructor
+  · have sumL : HasSum (fun (z:ℤ) ↦ q^(z^2)) lL := by
+      convert sumL with z
+      have : (-1:ℂ)^z * (-1)^(z^2) = 1 := by
+        simp[L_2 z two_ne_zero, ←zpow_add₀, ←two_mul, Even.neg_one_zpow]
+      rw[neg_eq_neg_one_mul q, mul_zpow, ←mul_assoc, this, one_mul]
+    sorry
+  · rw[eq]
+    suffices : HasSum (fun n ↦ (σ 1 (n+1))*q^(n+1) - (σ 4 (n+1))*q^(n+1)) lR
+    · have : 1 = ∑ i ∈ range 1, (term (fun n ↦ if n = 0 then 1
+          else 8 * (σ 1 n) - 8 * (σ 4 n)) q) i := by simp[term]
+      rw[add_comm, this, ←hasSum_nat_add_iff]; clear this
+      simp only [term, Nat.add_eq_zero_iff, one_ne_zero, and_false, ↓reduceIte, Int.cast_sub,
+        Int.cast_mul, Int.cast_ofNat, Int.cast_natCast, mul_assoc, ←mul_sub (8 : ℂ)]
+      apply HasSum.mul_left 8
+      simpa [sub_mul]
+    obtain ⟨l1, ⟨h1_quot, h1_σ⟩⟩ := σ_formula qB one_ne_zero
+    obtain ⟨l4, ⟨h4_quot, h4_σ⟩⟩ := σ_formula qB four_ne_zero
+    suffices : lR = l1 - l4
+    · exact this ▸ HasSum.sub h1_σ h4_σ
+    have : HasSum (fun n ↦ if Odd n then q^(n+1)/(1-q^(n+1))^2 - q^(n+1)/(1+q^(n+1))^2
+        else 0) l4 := by
+      apply h4_quot.hasSum_of_sum_eq
+      intro u; let v := u.biUnion (fun n ↦ {2*n+1}); use v
+      intro v' v_subst_v'
+      let u' := (v'.filter (fun n ↦ Odd n)).biUnion (fun n ↦ {n/2}); use u'
+      constructor
+      · intro x xu
+        rw[Finset.mem_biUnion]; use 2*x+1
+        simp only [mem_filter, even_two, Even.mul_right, Even.add_one, and_true, mem_singleton]
+        exact ⟨v_subst_v' (mem_biUnion.mpr ⟨x, xu, by simp⟩), by omega⟩
+      · rw[sum_biUnion]
+        · simp only [Nat.cast_ofNat, sum_singleton, sum_ite, Nat.not_odd_iff_even,
+          sum_const_zero, add_zero]
+          apply sum_congr rfl
+          simp only [mem_filter, and_imp]
+          rintro _ - ⟨a, rfl⟩
+          rw[div_sub_div _ _ ?_ ?_, (by omega : (2*a+1)/2 = a)]; rotate_left
+          · apply pow_ne_zero; exact W0_terms' (mem_ball_zero_iff.mp qB) (by omega)
+          · apply pow_ne_zero; exact h₁_qB qB _
+          field
+        · simp only [coe_filter, pairwiseDisjoint_singleton_iff_injOn]
+          rintro _ ⟨_, ⟨a, rfl⟩⟩ _ ⟨_, ⟨b, rfl⟩⟩
+          grind
+    have : HasSum (fun n ↦ (- -q)^(n+1) / (1+(-q)^(n+1))^2) (l1 - l4) := by
+      apply HasSum.congr_fun (HasSum.sub h1_quot this)
+      intro n
+      by_cases nParity : Odd n
+      · simp only [neg_neg, Nat.cast_one, one_mul, nParity, ↓reduceIte, sub_sub_cancel]
+        rw[Even.neg_pow (by exact Odd.add_one nParity) q]
+      · simp only [neg_neg, Nat.cast_one, one_mul, nParity, ↓reduceIte, sub_zero]
+        rw[Odd.neg_pow (by exact Even.add_one (by exact Nat.not_odd_iff_even.mp nParity)) q]
+        field
+    exact HasSum.unique sumR this
+
+end sum_sq_sq_sq_sq_formula
