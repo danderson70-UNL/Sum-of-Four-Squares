@@ -456,8 +456,37 @@ def sum_sq_sq_sq_sq (n : ℕ) := #{(⟨w,_⟩, ⟨x,_⟩, ⟨y,_⟩, ⟨z,_⟩) 
     × (zrange n) × (zrange n) | w^2 + x^2 + y^2 + z^2 = n}
 #eval sum_sq_sq_sq_sq 5
 
+lemma mem_zrange_iff {z : ℤ} {n : ℕ} : z ∈ zrange n ↔ -n ≤ z ∧ z ≤ n := by
+  simp only [zrange, mem_image, mem_range, Order.lt_add_one_iff]
+  constructor
+  · rintro ⟨a, a_2n, an_z⟩
+    omega
+  · intros
+    use (z + n).toNat
+    omega
+
 lemma Int.neg_self_le_self_sq (a : ℤ) : -a ≤ a^2 := by
   exact sq_abs a ▸ (neg_le_abs a).trans (Int.le_self_sq |a|)
+
+lemma L_6 {q : ℂ} (qN1 : ‖q‖ < 1) : Summable (fun (z : ℤ) ↦ ‖q^(z^2)‖) := by
+  have : (fun (z : ℤ) ↦ ‖q^(z^2)‖) = Int.rec (fun n ↦ ‖q^(n^2)‖) (fun n ↦ ‖q^((n+1)^2)‖) := by
+    ext z
+    cases z with
+    | ofNat n =>
+        simp only [Int.ofNat_eq_natCast, norm_zpow, norm_pow]
+        rw[←zpow_natCast, Int.natCast_pow]
+    | negSucc n =>
+        simp only [norm_zpow, norm_pow]
+        rw[(Int.natAbs_eq_iff_sq_eq.mp rfl : (Int.negSucc n)^2 = (n+1)^2)]
+        exact_mod_cast rfl
+  rw[this]
+  apply Summable.int_rec <;> (
+      apply Summable.of_norm_bounded (summable_geometric_of_lt_one (norm_nonneg q) qN1);
+      intro i; rw[norm_norm, norm_pow];
+      apply pow_le_pow_of_le_one (norm_nonneg q) qN1.le)
+  · exact Nat.le_self_pow two_ne_zero i
+  · have := Nat.le_self_pow two_ne_zero (i+1)
+    linarith
 
 lemma L_4 {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ limit : ℂ, HasSum (fun z : ℤ ↦ q^(z^2)) limit
     → HasSum (term (fun n ↦ sum_sq_sq n) q) (limit^2) := by
@@ -525,27 +554,7 @@ lemma L_4 {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ limit : ℂ, HasSum (fun z : ℤ �
     exact HasSum.tsum_fiberwise h g
   show HasSum (fun (p : ℤ × ℤ) ↦ q^(p.1^2) * q^(p.2^2)) (limit^2)
   have prod_summable : Summable (fun (p : ℤ × ℤ) ↦ q^(p.1^2) * q^(p.2^2)) := by
-    apply Summable.of_norm
-    have : Summable (fun (z : ℤ) ↦ ‖q^(z^2)‖) := by
-      have : (fun (z : ℤ) ↦ ‖q^(z^2)‖) = Int.rec (fun n ↦ ‖q^(n^2)‖) (fun n ↦ ‖q^((n+1)^2)‖) := by
-        ext z
-        cases z with
-        | ofNat n =>
-            simp only [Int.ofNat_eq_natCast, norm_zpow, norm_pow]
-            rw[←zpow_natCast, Int.natCast_pow]
-        | negSucc n =>
-            simp only [norm_zpow, norm_pow]
-            rw[(Int.natAbs_eq_iff_sq_eq.mp rfl : (Int.negSucc n)^2 = (n+1)^2)]
-            exact_mod_cast rfl
-      rw[this]
-      apply Summable.int_rec <;> (
-          apply Summable.of_norm_bounded (summable_geometric_of_lt_one (norm_nonneg q) qN1);
-          intro i; rw[norm_norm, norm_pow];
-          apply pow_le_pow_of_le_one (norm_nonneg q) qN1.le)
-      · exact Nat.le_self_pow two_ne_zero i
-      · have := Nat.le_self_pow two_ne_zero (i+1)
-        linarith
-    exact (Summable.mul_norm this this : _)
+    apply Summable.of_norm (Summable.mul_norm (L_6 qN1) (L_6 qN1) : _)
   rw[prod_summable.hasSum_iff, Summable.tsum_prod prod_summable]
   calc
     _ = ∑' (w : ℤ), (q^(w^2) * ∑' (z : ℤ), q^(z^2)) := by
@@ -554,8 +563,71 @@ lemma L_4 {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ limit : ℂ, HasSum (fun z : ℤ �
       simp [tsum_mul_left]
     _ = _ := by rw[sumH.tsum_eq, tsum_mul_right, sumH.tsum_eq, pow_two]
 
-lemma L_5 {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ limit : ℂ, HasSum (fun z : ℤ ↦ q^(z^2)) limit
-    → HasSum (term (fun n ↦ sum_sq_sq_sq_sq n) q) (limit^4) := by sorry
+lemma L_5 {q : ℂ} (qN1 : ‖q‖ < 1) {limit : ℂ} : HasSum (fun z : ℤ ↦ q^(z^2)) limit
+    → HasSum (term (fun n ↦ sum_sq_sq_sq_sq n) q) (limit^4) := by
+  -- let g : ℤ × ℤ × ℤ × ℤ → ℕ
+  --   | (a, b, c, d) => (a^2 + b^2 + c^2 + d^2).toNat
+  let g (p : ℤ × ℤ × ℤ × ℤ) := q^(p.1^2) * q^(p.2.1^2) * q^(p.2.2.1^2) * q^(p.2.2.2^2)
+  intro sumH
+  have : Summable g := by
+    simp only [g, mul_assoc]
+    apply Summable.of_norm
+    apply Summable.mul_norm (L_6 qN1) (Summable.mul_norm (L_6 qN1)
+        (Summable.mul_norm (L_6 qN1) (L_6 qN1)))
+  have h : HasSum g (limit^4) := by
+    rw[this.hasSum_iff, (by grobner : limit^4 = limit * limit * limit * limit), ←sumH.tsum_eq]
+    simp only [Summable.tsum_prod this, fun a ↦ Summable.tsum_prod (this.prod_factor a),
+      fun a b ↦ Summable.tsum_prod ((this.prod_factor a).prod_factor b)]
+    simp only [←tsum_mul_left, ←tsum_mul_right, g]
+    repeat (apply tsum_congr; intros)
+    ring
+  let f (p : ℤ × ℤ × ℤ × ℤ) := (p.1^2 + p.2.1^2 + p.2.2.1^2 + p.2.2.2^2).toNat
+  suffices : (term (fun n ↦ sum_sq_sq_sq_sq n) q) = (fun (n:ℕ) ↦ ∑' p : f⁻¹' {n}, g p)
+  · rw[this]
+    exact HasSum.tsum_fiberwise h f
+  ext n
+  have := Int.sq_nonneg
+  calc
+    _ = ∑' (p : f⁻¹' {n}), q^n := by
+      simp only [term, sum_sq_sq_sq_sq, ← Set.ncard_coe_finset, coe_filter, mem_univ, true_and,
+        Int.cast_natCast, tsum_const, Nat.card_coe_set_eq, nsmul_eq_mul, mul_eq_mul_right_iff,
+        Nat.cast_inj, pow_eq_zero_iff', ne_eq]
+      left
+      refine Set.ncard_congr (fun p _ ↦ ⟨p.1.1, p.2.1.1, p.2.2.1.1, p.2.2.2.1⟩) ?_ ?_ ?_
+      · rintro p pR
+        simp at pR
+        simp [f, pR]
+      · rintro p - r -
+        grind
+      · intro z zR
+        simp only [Set.mem_preimage, Set.mem_singleton_iff, f] at zR
+        have zR : z.1^2 + z.2.1^2 + z.2.2.1^2 + z.2.2.2^2 = ↑n := by
+          rw[←zR]
+          grind
+        obtain ⟨h1, h2, h3, h4⟩ : z.1 ∈ zrange n ∧ z.2.1 ∈ zrange n
+            ∧ z.2.2.1 ∈ zrange n ∧ z.2.2.2 ∈ zrange n := by
+          simp only [mem_zrange_iff, ← abs_le]
+          have : |z.1| ≤ z.1^2 := Int.natCast_natAbs _ ▸ Int.natAbs_le_self_pow_two z.1
+          have : (z.1).natAbs = |z.1| := by exact Int.natCast_natAbs z.1
+          refine ⟨?_, ?_, ?_, ?_⟩ <;> (
+            apply (Int.natCast_natAbs _ ▸ Int.natAbs_le_self_pow_two _).trans
+            rw[←zR]
+            grind
+          )
+        simp only [Set.mem_setOf_eq, exists_prop, Prod.exists, Subtype.exists]
+        refine ⟨z.1, h1, ⟨z.2.1, h2, ⟨z.2.2.1, h3, ⟨z.2.2.2, h4, ?_, rfl⟩⟩⟩⟩
+        have (x : ℤ) : x^2 ≥ 0 := Int.sq_nonneg x
+        grind
+    _ = _ := by
+      apply tsum_congr
+      rintro ⟨p, pR⟩
+      simp only [Set.mem_preimage, Set.mem_singleton_iff, f] at pR
+      have : n = (p.1^2).toNat + (p.2.1^2).toNat + (p.2.2.1^2).toNat + (p.2.2.2^2).toNat := by
+        rw[←pR]
+        grind
+      simp only [g, this, pow_add]
+      repeat rw[←zpow_natCast]
+      congr <;> (exact Int.toNat_of_nonneg (Int.sq_nonneg _))
 
 end sum_of_squares_formulae
 
@@ -737,8 +809,7 @@ lemma Jacobi_sum_of_four_squares : sum_sq_sq_sq_sq
       have : (-1:ℂ)^z * (-1)^(z^2) = 1 := by
         simp[L_2 z two_ne_zero, ←zpow_add₀, ←two_mul, Even.neg_one_zpow]
       rw[neg_eq_neg_one_mul q, mul_zpow, ←mul_assoc, this, one_mul]
-    -- exact L_5 qN1 sumL
-    sorry
+    exact L_5 qN1 sumL
   · rw[eq]
     suffices : HasSum (fun n ↦ (σ 1 (n+1))*q^(n+1) - (σ 4 (n+1))*q^(n+1)) lR
     · have : 1 = ∑ i ∈ range 1, (term (fun n ↦ if n = 0 then 1
