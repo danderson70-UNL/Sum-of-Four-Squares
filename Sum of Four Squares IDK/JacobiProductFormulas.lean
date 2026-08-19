@@ -7,7 +7,7 @@ section prod_props
 open Finset
 
 -- Some general theorems
-theorem HasProd.in_pairs {f : ℕ → ℂ} {a : ℂ} (h : HasProd f a) :
+lemma HasProd.in_pairs {f : ℕ → ℂ} {a : ℂ} (h : HasProd f a) :
     HasProd (fun n ↦ f (2*n) * f (2*n+1)) a := by
   apply HasProd.hasProd_of_prod_eq _ h
   intro u
@@ -24,7 +24,7 @@ theorem HasProd.in_pairs {f : ℕ → ℂ} {a : ℂ} (h : HasProd f a) :
     intro m mv n nv mn
     simp; omega
 
-theorem HasProd.inv₀ {α β : Type*} {L : SummationFilter β} [CommGroupWithZero α]
+lemma HasProd.inv₀ {α β : Type*} {L : SummationFilter β} [CommGroupWithZero α]
     [TopologicalSpace α] [ContinuousInv₀ α] [IsTopologicalGroup αˣ]
     {f : β → α} {a : α} (h : HasProd f a L) (a0 : a ≠ 0) :
     HasProd (fun n ↦ (f n)⁻¹) a⁻¹ L := by
@@ -34,7 +34,7 @@ theorem HasProd.inv₀ {α β : Type*} {L : SummationFilter β} [CommGroupWithZe
   rw[HasProd, this]
   apply Filter.Tendsto.inv₀ h a0
 
--- Some theorems that are more specific
+-- Some lemmas that are more specific to certain situations
 lemma L_1 {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ b : ℂ, b ≠ 0 ∧ HasProd (fun n ↦ 1 - q^(n+1)) b := by
   obtain ⟨b, hb⟩ := ModularForm.multipliable_one_sub_pow qN1
   use b; refine ⟨?_, hb⟩
@@ -139,7 +139,6 @@ theorem jacobiTripleProduct {a q : ℂ} (a0 : a ≠ 0) (qN1 : ‖q‖ < 1) :
 lemma JTP_1 {q : ℂ} (qN1 : ‖q‖ < 1) :
     ∃ limit : ℂ, HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit
     ∧ HasProd (fun n ↦ (1 - q^(n+1)) * (1 + q^(n+1))⁻¹) limit := by
-  -- obtain ⟨l, prod, sum⟩ := jtp (by grobner : (-1:ℂ) ≠ 0) qN1
   obtain ⟨l, prod, sum⟩ := jacobiTripleProduct (by grobner : (-1:ℂ) ≠ 0) qN1
   use l; refine ⟨sum, ?_⟩; clear sum
   simp only [neg_one_mul, (by ring : (-1:ℂ)⁻¹ = -1), ←sub_eq_add_neg, ←pow_two] at prod
@@ -149,7 +148,6 @@ lemma JTP_2 {q : ℂ} (qN1 : ‖q‖ < 1) :
     ∃ limit : ℂ, HasSum (fun z : ℤ ↦ (-1)^z * q^(z^2)) limit
     ∧ HasProd (fun n ↦ ((1-q^(2*n+1)) * (1-q^(2*n+2)))
       * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹)) limit := by
-  -- obtain ⟨l, sum, prod⟩ := JTP_1 jtp qN1
   obtain ⟨l, sum, prod⟩ := JTP_1 qN1
   use l; refine ⟨sum, ?_⟩
   have : (fun n ↦ (1-q^(2*n+1)) * (1-q^(2*n+2)) * ((1+q^(2*n+2))⁻¹ * (1+q^(2*n+1))⁻¹))

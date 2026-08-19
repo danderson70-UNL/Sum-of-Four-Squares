@@ -486,7 +486,7 @@ lemma h₁_qN1 {q : ℂ} (qN1 : ‖q‖ < 1) : ∀ n : ℕ, 1 + q^n ≠ 0 := by
   rw[←norm_pow q, ←norm_neg, ←eq, norm_one, one_pow] at this
   linarith
 
-theorem eq_2aq {q x : ℂ} (qN1 : ‖q‖ < 1) (h₂ : ∀ n : ℕ, 1-q^n*x+q^(2*n) ≠ 0) :
+lemma eq_2aq {q x : ℂ} (qN1 : ‖q‖ < 1) (h₂ : ∀ n : ℕ, 1-q^n*x+q^(2*n) ≠ 0) :
     ∃ limitP : ℂ, ∃ limitS : ℂ,
     Tendsto (fun N ↦ ∏ n ∈ range N,
       ((1+q^(n+1)*x+q^(2*n+2)) / (1-q^(n+1)*x+q^(2*n+2))) * (((1-q^(n+1))^2) / (1+q^(n+1))^2))
@@ -630,7 +630,7 @@ lemma eq_4 {q : ℂ} (qN1 : ‖q‖ < 1) : ∃ limitL, ∃ limitR,
     rw[this]
     grobner
 
-lemma Jacobi_sum_of_four_squares : sum_sq_sq_sq_sq
+theorem Jacobi_sum_of_four_squares : sum_sq_sq_sq_sq
     = fun n ↦ if n = 0 then 1 else 8 * ∑ x ∈ {x ∈ nrange n | x ∣ n ∧ ¬4 ∣ x}, x := by
   suffices h : (fun n ↦ (sum_sq_sq_sq_sq n : ℤ))
       = (fun n ↦ if n = 0 then 1 else 8*(σ 1 n : ℤ) - 8*(σ 4 n))
