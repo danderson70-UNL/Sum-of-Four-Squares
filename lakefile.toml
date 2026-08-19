@@ -1,7 +1,7 @@
-name = "Sum of Four Squares IDK"
+name = "SumOfFourSquares"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["«Sum of Four Squares IDK»"]
+defaultTargets = ["SumOfFourSquares"]
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -20,4 +20,4 @@ git = "https://github.com/seewoo5/RogersRamanujan"
 rev = "jacobi-complex"
 
 [[lean_lib]]
-name = "«Sum of Four Squares IDK»"
+name = "SumOfFourSquares"

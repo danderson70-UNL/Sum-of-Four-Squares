@@ -1,7 +1,7 @@
 import Mathlib
-import «Sum of Four Squares IDK».VariousSumsAndProducts
-import «Sum of Four Squares IDK».PowerAndMultilinearSeries
-import «Sum of Four Squares IDK».JacobiProductFormulas
+import SumOfFourSquares.VariousSumsAndProducts
+import SumOfFourSquares.PowerAndMultilinearSeries
+import SumOfFourSquares.JacobiProductFormulas
 set_option linter.style.whitespace false
 
 section d_lemmas

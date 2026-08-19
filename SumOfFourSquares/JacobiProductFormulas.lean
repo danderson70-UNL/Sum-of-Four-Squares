@@ -1,6 +1,7 @@
 import Mathlib
 import RogersRamanujan
-import «Sum of Four Squares IDK».VariousSumsAndProducts
+import SumOfFourSquares.VariousSumsAndProducts
+-- import SumOfFourSquares.VariousSumsAndProducts
 set_option linter.style.whitespace false
 
 section prod_props
