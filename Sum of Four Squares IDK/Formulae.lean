@@ -1,6 +1,6 @@
 import Mathlib
 import «Sum of Four Squares IDK».«Various Sums & Prods v3»
-import «Sum of Four Squares IDK».«Power & Multilinear Series v2»
+import «Sum of Four Squares IDK».PowerAndMultilinearSeries
 import «Sum of Four Squares IDK».JacobiProductFormulas
 set_option linter.style.whitespace false
 
