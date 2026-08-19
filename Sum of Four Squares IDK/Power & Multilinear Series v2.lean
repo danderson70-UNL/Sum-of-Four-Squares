@@ -9,7 +9,6 @@ def coeffs_to_p (f : ℕ → ℤ) : FormalMultilinearSeries ℂ ℂ ℂ :=
 def term (f : ℕ → ℤ) (q : ℂ) := fun n ↦ ↑(f n) * q^n
 def convDisk1 (f : ℕ → ℤ) := ∀ q ∈ Metric.ball 0 1, Summable (term f q)
 def evalPS (f : ℕ → ℤ) := fun q ↦ ∑' n, term f q n
-#check FormalMultilinearSeries.summable
 
 lemma PS_at_of_pos_convDisk1 {f : ℕ → ℤ} (fconv : convDisk1 f) :
     HasFPowerSeriesAt (evalPS f) (coeffs_to_p f) 0 := by

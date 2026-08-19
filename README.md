@@ -1,13 +1,5 @@
-# Sum of Four Squares IDK
+# Sum of Four Squares
 
-## GitHub configuration
+This package proves two of the results in the paper [Partial Fractions and Four Classicai Theorems of Number Theory](https://doi.org/10.2307/2589321)> by Michaep D. Hirschhorn. This package follows the proof given in the paper to show Jacobi's Sum of Two Squares formula and Jacobi's Sum of Four Squares formula. (If desired, I could additionally prove Dirichlet's formula and Lorenz's formula.)
 
-To set up your new GitHub repository, follow these steps:
-
-* Under your repository name, click **Settings**.
-* In the **Actions** section of the sidebar, click "General".
-* Check the box **Allow GitHub Actions to create and approve pull requests**.
-* Click the **Pages** section of the settings sidebar.
-* In the **Source** dropdown menu, select "GitHub Actions".
-
-After following the steps above, you can remove this section from the README file.
+Special thanks to Seewoo Lee for his formalization of the Jacobi Triple Product for $$\mathbb{C}$$, to Noah Walker for help with some issues, and to Kim Morrison for some additional ideas he provided during the Lean Community Office Hours. Also, thanks to the Lean Community overall for helping me find resources while writing this formalization!
